@@ -1,0 +1,28 @@
+.login_btn {
+    background-color: #1A8AAE !important;
+    border-color: #1A8AAE !important;
+}
+
+.login_btn:hover {
+    background-color: #5ba0b7 !important;
+    border-color: #5ba0b7 !important;
+}
+
+.link_register {
+    color: #7C7C7F;
+}
+
+.link_register:hover {
+    color: #1A8AAE;
+}
+
+.logo {
+    padding-top: 3rem;
+}
+
+.alert-danger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
