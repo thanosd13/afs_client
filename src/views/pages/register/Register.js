@@ -61,7 +61,9 @@ const Register = () => {
     UserService.register(formData)
       .then((response) => {
         if (response.status === 201) {
+          console.log(response);
           localStorage.setItem("token", response.data.data.token);
+          localStorage.setItem("id", response.data.data.user.id);
           navigate("/charts");
         }
       })

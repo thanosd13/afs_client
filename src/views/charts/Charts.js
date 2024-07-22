@@ -18,30 +18,37 @@ const Charts = () => {
   });
 
   useEffect(() => {
+    const processData = (data) => {
+      if (!Array.isArray(data)) {
+        data = [data];
+      }
+      const aggregatedData = data.reduce((acc, item) => {
+        const date = item.issueDate;
+        const grossValue = parseFloat(item.grossValue);
+
+        if (acc[date]) {
+          acc[date] += grossValue;
+        } else {
+          acc[date] = grossValue;
+        }
+        return acc;
+      }, {});
+
+      const sortedDates = Object.keys(aggregatedData).sort(
+        (a, b) => new Date(a) - new Date(b)
+      );
+      const grossValues = sortedDates.map((date) => aggregatedData[date]);
+
+      return { labels: sortedDates, grossValues };
+    };
+
     const requestIncome = async () => {
       try {
         const id = localStorage.getItem("id");
         const response = await UserService.requestIncome(id);
         if (response.status === 200) {
-          const data = response.data.data;
-          const aggregatedData = data.reduce((acc, item) => {
-            const date = item.issueDate;
-            const grossValue = parseFloat(item.grossValue);
-
-            if (acc[date]) {
-              acc[date] += grossValue;
-            } else {
-              acc[date] = grossValue;
-            }
-            return acc;
-          }, {});
-
-          const sortedDates = Object.keys(aggregatedData).sort(
-            (a, b) => new Date(a) - new Date(b)
-          );
-          const grossValues = sortedDates.map((date) => aggregatedData[date]);
-
-          setIncomeData({ labels: sortedDates, grossValues });
+          const processedData = processData(response.data.data);
+          setIncomeData(processedData);
         }
       } catch (error) {
         console.log(error);
@@ -53,25 +60,8 @@ const Charts = () => {
         const id = localStorage.getItem("id");
         const response = await UserService.requestExpenses(id);
         if (response.status === 200) {
-          const data = response.data.data;
-          const aggregatedData = data.reduce((acc, item) => {
-            const date = item.issueDate;
-            const grossValue = parseFloat(item.grossValue);
-
-            if (acc[date]) {
-              acc[date] += grossValue;
-            } else {
-              acc[date] = grossValue;
-            }
-            return acc;
-          }, {});
-
-          const sortedDates = Object.keys(aggregatedData).sort(
-            (a, b) => new Date(a) - new Date(b)
-          );
-          const grossValues = sortedDates.map((date) => aggregatedData[date]);
-
-          setExpenseData({ labels: sortedDates, grossValues });
+          const processedData = processData(response.data.data);
+          setExpenseData(processedData);
         }
       } catch (error) {
         console.log(error);
