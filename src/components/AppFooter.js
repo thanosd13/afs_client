@@ -19,7 +19,7 @@ const AppFooter = () => {
         <span className="me-1">Powered by</span>
         <a
           style={{ color: "#1A8AAE" }}
-          href="https://www.linkedin.com/in/thanos-dimopoulos-089541243/"
+          href="#"
           target="_blank"
           rel="noopener noreferrer"
         >
