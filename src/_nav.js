@@ -209,7 +209,7 @@ const _nav = [
   {
     component: CNavItem,
     name: "Ο λογαριασμός μου",
-    to: "/account",
+    to: "/my_account",
     icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
   },
   // {

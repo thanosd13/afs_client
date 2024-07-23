@@ -1,4 +1,5 @@
 import React from "react";
+import MyAccount from "./views/pages/account/MyAccount";
 
 const Dashboard = React.lazy(() => import("./views/dashboard/Dashboard"));
 const Colors = React.lazy(() => import("./views/theme/colors/Colors"));
@@ -105,7 +106,7 @@ const routes = [
   // { path: '/buttons/button-groups', name: 'Button Groups', element: ButtonGroups },
   { path: "/charts", name: "Charts", element: Charts },
   // { path: '/forms', name: 'Forms', element: FormControl, exact: true },
-  // { path: '/forms/form-control', name: 'Form Control', element: FormControl },
+  { path: "/my_account", name: "My Account", element: MyAccount },
   // { path: '/forms/select', name: 'Select', element: Select },
   // { path: '/forms/checks-radios', name: 'Checks & Radios', element: ChecksRadios },
   // { path: '/forms/range', name: 'Range', element: Range },

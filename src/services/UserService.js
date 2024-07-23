@@ -25,6 +25,18 @@ class UserService {
       });
   }
 
+  getUserData(id) {
+    return axios.get(API_URL + "/user/getUserData/" + id, {
+      headers: AuthHeader(),
+    });
+  }
+
+  updateUser(id, userData) {
+    return axios.put(API_URL + "/user/updateUserData/" + id, userData, {
+      headers: AuthHeader(),
+    });
+  }
+
   requestIncome(id) {
     return axios.get(API_URL + "/user/requestIncome/" + id, {
       headers: AuthHeader(),
