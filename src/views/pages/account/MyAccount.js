@@ -44,7 +44,6 @@ const MyAccount = () => {
     UserService.updateUser(id, userData)
       .then((response) => {
         if (response.status === 200) {
-          setUserData(response.data);
           setAlertSuccess("Επιτυχής αποθήκευση!");
         }
       })
