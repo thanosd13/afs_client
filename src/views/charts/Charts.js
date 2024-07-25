@@ -2,44 +2,74 @@ import React, { useEffect, useState } from "react";
 import { CCard, CCardBody, CCol, CCardHeader, CRow } from "@coreui/react";
 import {
   CChartBar,
-  CChartDoughnut,
   CChartLine,
+  CChartDoughnut,
   CChartPie,
-  CChartPolarArea,
-  CChartRadar,
 } from "@coreui/react-chartjs";
 import UserService from "../../services/UserService";
 
 const Charts = () => {
-  const [incomeData, setIncomeData] = useState({ labels: [], grossValues: [] });
-  const [expenseData, setExpenseData] = useState({
-    labels: [],
-    grossValues: [],
-  });
+  const [incomeData, setIncomeData] = useState({ labels: [], datasets: [] });
+  const [expenseData, setExpenseData] = useState({ labels: [], datasets: [] });
 
   useEffect(() => {
-    const processData = (data) => {
+    const processData = (data, currentYear) => {
       if (!Array.isArray(data)) {
         data = [data];
       }
-      const aggregatedData = data.reduce((acc, item) => {
-        const date = item.issueDate;
-        const grossValue = parseFloat(item.grossValue);
 
-        if (acc[date]) {
-          acc[date] += grossValue;
-        } else {
-          acc[date] = grossValue;
+      const aggregatedData = {};
+
+      // Initialize all months with 0 values for current and last year
+      for (let month = 0; month < 12; month++) {
+        const currentYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear()}`;
+        const lastYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear() - 1}`;
+        aggregatedData[currentYearLabel] = { currentYear: 0, lastYear: 0 };
+        aggregatedData[lastYearLabel] = { currentYear: 0, lastYear: 0 };
+      }
+
+      data.forEach((item) => {
+        const date = new Date(item.issueDate);
+        const month = date.getMonth();
+        const year = date.getFullYear();
+
+        if (
+          year === currentYear.getFullYear() ||
+          year === currentYear.getFullYear() - 1
+        ) {
+          const label = `${String(month + 1).padStart(2, "0")}/${year}`;
+
+          if (year === currentYear.getFullYear()) {
+            aggregatedData[label].currentYear += parseFloat(item.grossValue);
+          } else if (year === currentYear.getFullYear() - 1) {
+            aggregatedData[label].lastYear += parseFloat(item.grossValue);
+          }
         }
-        return acc;
-      }, {});
+      });
 
-      const sortedDates = Object.keys(aggregatedData).sort(
-        (a, b) => new Date(a) - new Date(b)
-      );
-      const grossValues = sortedDates.map((date) => aggregatedData[date]);
+      const labels = Object.keys(aggregatedData).sort((a, b) => {
+        const [monthA, yearA] = a.split("/").map(Number);
+        const [monthB, yearB] = b.split("/").map(Number);
+        return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+      });
+      const currentYearData = labels
+        .filter((label) => label.endsWith(currentYear.getFullYear().toString()))
+        .map((label) => aggregatedData[label].currentYear);
+      const lastYearData = labels
+        .filter((label) =>
+          label.endsWith((currentYear.getFullYear() - 1).toString())
+        )
+        .map((label) => aggregatedData[label].lastYear);
 
-      return { labels: sortedDates, grossValues };
+      return {
+        labels: labels.filter((label) =>
+          label.endsWith(currentYear.getFullYear().toString())
+        ),
+        datasets: [
+          { label: "Τρέχον έτος", data: currentYearData },
+          { label: "Προηγούμενο έτος", data: lastYearData },
+        ],
+      };
     };
 
     const requestIncome = async () => {
@@ -47,7 +77,8 @@ const Charts = () => {
         const id = localStorage.getItem("id");
         const response = await UserService.requestIncome(id);
         if (response.status === 200) {
-          const processedData = processData(response.data.data);
+          const currentYear = new Date();
+          const processedData = processData(response.data.data, currentYear);
           setIncomeData(processedData);
         }
       } catch (error) {
@@ -60,7 +91,8 @@ const Charts = () => {
         const id = localStorage.getItem("id");
         const response = await UserService.requestExpenses(id);
         if (response.status === 200) {
-          const processedData = processData(response.data.data);
+          const currentYear = new Date();
+          const processedData = processData(response.data.data, currentYear);
           setExpenseData(processedData);
         }
       } catch (error) {
@@ -74,280 +106,148 @@ const Charts = () => {
 
   return (
     <CRow>
-      <CCol xs={6}>
+      <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader>Έσοδα</CCardHeader>
           <CCardBody>
-            <CChartBar
-              data={{
-                labels: incomeData.labels,
-                datasets: [
-                  {
-                    label: "Έσοδα ημέρας",
-                    backgroundColor: "#f87979",
-                    data: incomeData.grossValues,
-                  },
-                ],
-              }}
-              labels="dates"
-            />
+            <div style={{ overflowX: "auto" }}>
+              <CChartBar
+                data={{
+                  labels: incomeData.labels,
+                  datasets: incomeData.datasets.map((dataset, index) => ({
+                    ...dataset,
+                    backgroundColor: index === 0 ? "#f87979" : "#36A2EB",
+                  })),
+                }}
+                labels="dates"
+              />
+            </div>
           </CCardBody>
         </CCard>
       </CCol>
-      <CCol xs={6}>
-        <CCard className="mb-4">
-          <CCardHeader>Έσοδα</CCardHeader>
-          <CCardBody>
-            <CChartLine
-              data={{
-                labels: incomeData.labels,
-                datasets: [
-                  {
-                    label: "Έσοδα ημέρας",
-                    backgroundColor: "rgba(220, 220, 220, 0.2)",
-                    borderColor: "rgba(220, 220, 220, 1)",
-                    pointBackgroundColor: "rgba(220, 220, 220, 1)",
-                    pointBorderColor: "#fff",
-                    data: incomeData.grossValues,
-                  },
-                ],
-              }}
-            />
-          </CCardBody>
-        </CCard>
-      </CCol>
-      <CCol xs={6}>
-        <CCard className="mb-4">
-          <CCardHeader>Έσοδα</CCardHeader>
-          <CCardBody>
-            <CChartDoughnut
-              data={{
-                labels: incomeData.labels,
-                datasets: [
-                  {
-                    backgroundColor: [
-                      "#41B883",
-                      "#E46651",
-                      "#00D8FF",
-                      "#DD1B16",
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                      "#9966FF",
-                      "#FF9F40",
-                    ],
-                    data: incomeData.grossValues,
-                  },
-                ],
-              }}
-            />
-          </CCardBody>
-        </CCard>
-      </CCol>
-      <CCol xs={6}>
-        <CCard className="mb-4">
-          <CCardHeader>Έσοδα</CCardHeader>
-          <CCardBody>
-            <CChartPie
-              data={{
-                labels: incomeData.labels,
-                datasets: [
-                  {
-                    data: incomeData.grossValues,
-                    backgroundColor: [
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                      "#9966FF",
-                      "#FF9F40",
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                    ],
-                    hoverBackgroundColor: [
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                      "#9966FF",
-                      "#FF9F40",
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                    ],
-                  },
-                ],
-              }}
-            />
-          </CCardBody>
-        </CCard>
-      </CCol>
-      <CCol xs={6}>
+      <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader>Έξοδα</CCardHeader>
           <CCardBody>
-            <CChartBar
-              data={{
-                labels: expenseData.labels,
-                datasets: [
-                  {
-                    label: "Έξοδα ημέρας",
-                    backgroundColor: "#f87979",
-                    data: expenseData.grossValues,
-                  },
-                ],
-              }}
-              labels="dates"
-            />
+            <div style={{ overflowX: "auto" }}>
+              <CChartBar
+                data={{
+                  labels: expenseData.labels,
+                  datasets: expenseData.datasets.map((dataset, index) => ({
+                    ...dataset,
+                    backgroundColor: index === 0 ? "#f87979" : "#36A2EB",
+                  })),
+                }}
+                labels="dates"
+              />
+            </div>
           </CCardBody>
         </CCard>
       </CCol>
-      <CCol xs={6}>
+      {/* <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader>Έξοδα</CCardHeader>
           <CCardBody>
-            <CChartLine
-              data={{
-                labels: expenseData.labels,
-                datasets: [
-                  {
-                    label: "Έξοδα ημέρας",
-                    backgroundColor: "rgba(220, 220, 220, 0.2)",
-                    borderColor: "rgba(220, 220, 220, 1)",
-                    pointBackgroundColor: "rgba(220, 220, 220, 1)",
-                    pointBorderColor: "#fff",
-                    data: expenseData.grossValues,
-                  },
-                ],
-              }}
-            />
+            <div style={{ overflowX: "auto" }}>
+              <CChartLine
+                data={{
+                  labels: expenseData.labels,
+                  datasets: expenseData.datasets.map((dataset, index) => ({
+                    ...dataset,
+                    backgroundColor:
+                      index === 0
+                        ? "rgba(220, 220, 220, 0.2)"
+                        : "rgba(75, 192, 192, 0.2)",
+                    borderColor:
+                      index === 0
+                        ? "rgba(220, 220, 220, 1)"
+                        : "rgba(75, 192, 192, 1)",
+                    pointBackgroundColor:
+                      index === 0
+                        ? "rgba(220, 220, 220, 1)"
+                        : "rgba(75, 192, 192, 1)",
+                  })),
+                }}
+              />
+            </div>
           </CCardBody>
         </CCard>
       </CCol>
-      <CCol xs={6}>
+      <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader>Έξοδα</CCardHeader>
           <CCardBody>
-            <CChartDoughnut
-              data={{
-                labels: expenseData.labels,
-                datasets: [
-                  {
-                    backgroundColor: [
-                      "#41B883",
-                      "#E46651",
-                      "#00D8FF",
-                      "#DD1B16",
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                      "#9966FF",
-                      "#FF9F40",
-                    ],
-                    data: expenseData.grossValues,
-                  },
-                ],
-              }}
-            />
+            <div style={{ overflowX: "auto" }}>
+              <CChartDoughnut
+                data={{
+                  labels: expenseData.labels,
+                  datasets: expenseData.datasets.map((dataset, index) => ({
+                    ...dataset,
+                    backgroundColor:
+                      index === 0
+                        ? [
+                            "#41B883",
+                            "#E46651",
+                            "#00D8FF",
+                            "#DD1B16",
+                            "#FF6384",
+                            "#36A2EB",
+                            "#FFCE56",
+                            "#4BC0C0",
+                            "#9966FF",
+                            "#FF9F40",
+                          ]
+                        : [
+                            "#FFCE56",
+                            "#4BC0C0",
+                            "#9966FF",
+                            "#FF9F40",
+                            "#FF6384",
+                            "#36A2EB",
+                            "#FFCE56",
+                            "#4BC0C0",
+                            "#9966FF",
+                            "#FF9F40",
+                          ],
+                  })),
+                }}
+              />
+            </div>
           </CCardBody>
         </CCard>
       </CCol>
-      <CCol xs={6}>
+      <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader>Έξοδα</CCardHeader>
           <CCardBody>
-            <CChartPie
-              data={{
-                labels: expenseData.labels,
-                datasets: [
-                  {
-                    data: expenseData.grossValues,
-                    backgroundColor: [
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                      "#9966FF",
-                      "#FF9F40",
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                    ],
-                    hoverBackgroundColor: [
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                      "#9966FF",
-                      "#FF9F40",
-                      "#FF6384",
-                      "#36A2EB",
-                      "#FFCE56",
-                      "#4BC0C0",
-                    ],
-                  },
-                ],
-              }}
-            />
-          </CCardBody>
-        </CCard>
-      </CCol>
-      {/* <CCol xs={6}>
-        <CCard className="mb-4">
-          <CCardHeader>Polar Area Chart</CCardHeader>
-          <CCardBody>
-            <CChartPolarArea
-              data={{
-                labels: expenseData.labels,
-                datasets: [
-                  {
-                    data: expenseData.grossValues,
-                    backgroundColor: [
-                      "#FF6384",
-                      "#4BC0C0",
-                      "#FFCE56",
-                      "#E7E9ED",
-                      "#36A2EB",
-                      "#FF6384",
-                      "#4BC0C0",
-                      "#FFCE56",
-                      "#E7E9ED",
-                      "#36A2EB",
-                    ],
-                  },
-                ],
-              }}
-            />
-          </CCardBody>
-        </CCard>
-      </CCol>
-      <CCol xs={6}>
-        <CCard className="mb-4">
-          <CCardHeader>Radar Chart</CCardHeader>
-          <CCardBody>
-            <CChartRadar
-              data={{
-                labels: expenseData.labels,
-                datasets: [
-                  {
-                    label: "Gross Value",
-                    backgroundColor: "rgba(220, 220, 220, 0.2)",
-                    borderColor: "rgba(220, 220, 220, 1)",
-                    pointBackgroundColor: "rgba(220, 220, 220, 1)",
-                    pointBorderColor: "#fff",
-                    pointHighlightFill: "#fff",
-                    pointHighlightStroke: "rgba(220, 220, 220, 1)",
-                    data: expenseData.grossValues,
-                  },
-                ],
-              }}
-            />
+            <div style={{ overflowX: "auto" }}>
+              <CChartPie
+                data={{
+                  labels: expenseData.labels,
+                  datasets: expenseData.datasets.map((dataset, index) => ({
+                    ...dataset,
+                    backgroundColor:
+                      index === 0
+                        ? [
+                            "#FF6384",
+                            "#36A2EB",
+                            "#FFCE56",
+                            "#4BC0C0",
+                            "#9966FF",
+                            "#FF9F40",
+                          ]
+                        : [
+                            "#FFCE56",
+                            "#4BC0C0",
+                            "#9966FF",
+                            "#FF9F40",
+                            "#FF6384",
+                            "#36A2EB",
+                          ],
+                  })),
+                }}
+              />
+            </div>
           </CCardBody>
         </CCard>
       </CCol> */}

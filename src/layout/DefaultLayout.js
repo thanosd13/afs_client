@@ -12,6 +12,7 @@ const DefaultLayout = () => {
 
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
+    if (localStorage.getItem("token")) navigate("/charts");
   }, []);
 
   return (
