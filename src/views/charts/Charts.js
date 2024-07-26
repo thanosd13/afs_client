@@ -13,6 +13,8 @@ const Charts = () => {
   const [totalVATIncome, setTotalVATIncome] = useState(null);
   const [totalVATExpenses, setTotalVATExpenses] = useState(null);
   const [VATDifference, setVATDifference] = useState(null);
+  const [B2BTotal, setB2BTotal] = useState(null);
+  const [B2CTotal, setB2CTotal] = useState(null);
 
   useEffect(() => {
     const processData = (data, currentYear) => {
@@ -22,6 +24,8 @@ const Charts = () => {
 
       const aggregatedData = {};
       let totalVAT = 0;
+      let B2B = 0;
+      let B2C = 0;
 
       for (let month = 0; month < 12; month++) {
         const currentYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear()}`;
@@ -50,6 +54,15 @@ const Charts = () => {
           } else if (year === currentYear.getFullYear() - 1) {
             aggregatedData[label].lastYear += parseFloat(item.grossValue);
           }
+
+          // Calculate B2B and B2C totals
+          if (
+            !["11.1", "11.2", "11.3", "11.4", "11.5"].includes(item.invType)
+          ) {
+            B2B += parseFloat(item.grossValue);
+          } else {
+            B2C += parseFloat(item.grossValue);
+          }
         }
       });
 
@@ -77,6 +90,8 @@ const Charts = () => {
         ],
         total,
         totalVAT,
+        B2B,
+        B2C,
       };
     };
 
@@ -90,6 +105,8 @@ const Charts = () => {
           setIncomeData(processedData);
           setTotalIncome(processedData.total);
           setTotalVATIncome(processedData.totalVAT);
+          setB2BTotal(processedData.B2B);
+          setB2CTotal(processedData.B2C);
         }
       } catch (error) {
         console.log(error);
@@ -173,11 +190,11 @@ const Charts = () => {
               <div style={{ overflowX: "auto" }}>
                 <CChartDoughnut
                   data={{
-                    labels: ["Σύνολο Έσοδα", "Σύνολο Έξοδα"],
+                    labels: ["B2B Έσοδα", "B2C Έσοδα", "Σύνολο Έξοδα"],
                     datasets: [
                       {
-                        data: [totalIncome, totalExpenses],
-                        backgroundColor: ["#41B883", "#E46651"],
+                        data: [B2BTotal, B2CTotal, totalExpenses],
+                        backgroundColor: ["#FFCE56", "#36A2EB", "#E46651"],
                       },
                     ],
                   }}
@@ -256,8 +273,8 @@ const Charts = () => {
                         ctx.textBaseline = "middle";
                         const text =
                           VATDifference >= 0
-                            ? `Διαφορά ΦΠΑ: €${VATDifference}`
-                            : `Διαφορά ΦΠΑ: €${Math.abs(VATDifference)}`;
+                            ? `ΦΠΑ Κέρδος: €${VATDifference}`
+                            : `ΦΠΑ Ζημία: €${Math.abs(VATDifference)}`;
                         const textX = Math.round(
                           (chart.width - ctx.measureText(text).width) / 2
                         );
