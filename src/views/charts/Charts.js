@@ -15,6 +15,10 @@ const Charts = () => {
   const [VATDifference, setVATDifference] = useState(null);
   const [B2BTotal, setB2BTotal] = useState(null);
   const [B2CTotal, setB2CTotal] = useState(null);
+  const [withheldAmountData, setWithheldAmountData] = useState({
+    labels: [],
+    datasets: [],
+  });
 
   useEffect(() => {
     const processData = (data, currentYear) => {
@@ -95,6 +99,48 @@ const Charts = () => {
       };
     };
 
+    const processWithheldAmountData = (data, currentYear) => {
+      if (!Array.isArray(data)) {
+        data = [data];
+      }
+
+      const aggregatedData = {};
+
+      for (let month = 0; month < 6; month++) {
+        const date = new Date(currentYear);
+        date.setMonth(date.getMonth() - month);
+        const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+        aggregatedData[label] = 0;
+      }
+
+      data.forEach((item) => {
+        const date = new Date(item.issueDate);
+        const month = date.getMonth();
+        const year = date.getFullYear();
+
+        if (
+          new Date(currentYear).setMonth(currentYear.getMonth() - 6) <= date
+        ) {
+          const label = `${String(month + 1).padStart(2, "0")}/${year}`;
+          if (aggregatedData[label] !== undefined) {
+            aggregatedData[label] += parseFloat(item.withheldAmount);
+          }
+        }
+      });
+
+      const labels = Object.keys(aggregatedData).sort((a, b) => {
+        const [monthA, yearA] = a.split("/").map(Number);
+        const [monthB, yearB] = b.split("/").map(Number);
+        return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+      });
+      const withheldData = labels.map((label) => aggregatedData[label]);
+
+      return {
+        labels,
+        datasets: [{ label: "Παρακρατούμενοι φόροι", data: withheldData }],
+      };
+    };
+
     const fetchIncome = async () => {
       try {
         const id = localStorage.getItem("id");
@@ -129,8 +175,26 @@ const Charts = () => {
       }
     };
 
+    const fetchWithheldAmounts = async () => {
+      try {
+        const id = localStorage.getItem("id");
+        const response = await UserService.requestExpenses(id);
+        if (response.status === 200) {
+          const currentYear = new Date();
+          const processedData = processWithheldAmountData(
+            response.data.data,
+            currentYear
+          );
+          setWithheldAmountData(processedData);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
     fetchIncome();
     fetchExpenses();
+    fetchWithheldAmounts();
   }, []);
 
   useEffect(() => {
@@ -175,6 +239,27 @@ const Charts = () => {
                     ...dataset,
                     backgroundColor: index === 0 ? "#f87979" : "#36A2EB",
                   })),
+                }}
+                labels="dates"
+              />
+            </div>
+          </CCardBody>
+        </CCard>
+      </CCol>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Παρακρατούμενοι φόροι</CCardHeader>
+          <CCardBody>
+            <div style={{ overflowX: "auto" }}>
+              <CChartBar
+                data={{
+                  labels: withheldAmountData.labels,
+                  datasets: withheldAmountData.datasets.map(
+                    (dataset, index) => ({
+                      ...dataset,
+                      backgroundColor: "#FFCE56",
+                    })
+                  ),
                 }}
                 labels="dates"
               />
