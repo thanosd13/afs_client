@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { CCard, CCardBody, CCol, CCardHeader, CRow } from "@coreui/react";
-import {
-  CChartBar,
-  CChartLine,
-  CChartDoughnut,
-  CChartPie,
-} from "@coreui/react-chartjs";
+import { CChartBar, CChartDoughnut } from "@coreui/react-chartjs";
+import ChartDataLabels from "chartjs-plugin-datalabels";
 import UserService from "../../services/UserService";
 
 const Charts = () => {
   const [incomeData, setIncomeData] = useState({ labels: [], datasets: [] });
   const [expenseData, setExpenseData] = useState({ labels: [], datasets: [] });
+  const [totalIncome, setTotalIncome] = useState(null);
+  const [totalExpenses, setTotalExpenses] = useState(null);
+  const [profitOrLoss, setProfitOrLoss] = useState(null);
+  const [totalVATIncome, setTotalVATIncome] = useState(null);
+  const [totalVATExpenses, setTotalVATExpenses] = useState(null);
+  const [VATDifference, setVATDifference] = useState(null);
 
   useEffect(() => {
     const processData = (data, currentYear) => {
@@ -19,14 +21,16 @@ const Charts = () => {
       }
 
       const aggregatedData = {};
+      let totalVAT = 0;
 
-      // Initialize all months with 0 values for current and last year
       for (let month = 0; month < 12; month++) {
         const currentYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear()}`;
         const lastYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear() - 1}`;
         aggregatedData[currentYearLabel] = { currentYear: 0, lastYear: 0 };
         aggregatedData[lastYearLabel] = { currentYear: 0, lastYear: 0 };
       }
+
+      let total = 0;
 
       data.forEach((item) => {
         const date = new Date(item.issueDate);
@@ -38,6 +42,8 @@ const Charts = () => {
           year === currentYear.getFullYear() - 1
         ) {
           const label = `${String(month + 1).padStart(2, "0")}/${year}`;
+          total += parseFloat(item.grossValue);
+          totalVAT += parseFloat(item.vatAmount);
 
           if (year === currentYear.getFullYear()) {
             aggregatedData[label].currentYear += parseFloat(item.grossValue);
@@ -69,10 +75,12 @@ const Charts = () => {
           { label: "Τρέχον έτος", data: currentYearData },
           { label: "Προηγούμενο έτος", data: lastYearData },
         ],
+        total,
+        totalVAT,
       };
     };
 
-    const requestIncome = async () => {
+    const fetchIncome = async () => {
       try {
         const id = localStorage.getItem("id");
         const response = await UserService.requestIncome(id);
@@ -80,13 +88,15 @@ const Charts = () => {
           const currentYear = new Date();
           const processedData = processData(response.data.data, currentYear);
           setIncomeData(processedData);
+          setTotalIncome(processedData.total);
+          setTotalVATIncome(processedData.totalVAT);
         }
       } catch (error) {
         console.log(error);
       }
     };
 
-    const requestExpenses = async () => {
+    const fetchExpenses = async () => {
       try {
         const id = localStorage.getItem("id");
         const response = await UserService.requestExpenses(id);
@@ -94,15 +104,26 @@ const Charts = () => {
           const currentYear = new Date();
           const processedData = processData(response.data.data, currentYear);
           setExpenseData(processedData);
+          setTotalExpenses(processedData.total);
+          setTotalVATExpenses(processedData.totalVAT);
         }
       } catch (error) {
         console.log(error);
       }
     };
 
-    requestIncome();
-    requestExpenses();
+    fetchIncome();
+    fetchExpenses();
   }, []);
+
+  useEffect(() => {
+    if (totalIncome !== null && totalExpenses !== null) {
+      setProfitOrLoss((totalIncome - totalExpenses).toFixed(2));
+    }
+    if (totalVATIncome !== null && totalVATExpenses !== null) {
+      setVATDifference((totalVATIncome - totalVATExpenses).toFixed(2));
+    }
+  }, [totalIncome, totalExpenses, totalVATIncome, totalVATExpenses]);
 
   return (
     <CRow>
@@ -144,113 +165,114 @@ const Charts = () => {
           </CCardBody>
         </CCard>
       </CCol>
-      {/* <CCol xs={12}>
-        <CCard className="mb-4">
-          <CCardHeader>Έξοδα</CCardHeader>
-          <CCardBody>
-            <div style={{ overflowX: "auto" }}>
-              <CChartLine
-                data={{
-                  labels: expenseData.labels,
-                  datasets: expenseData.datasets.map((dataset, index) => ({
-                    ...dataset,
-                    backgroundColor:
-                      index === 0
-                        ? "rgba(220, 220, 220, 0.2)"
-                        : "rgba(75, 192, 192, 0.2)",
-                    borderColor:
-                      index === 0
-                        ? "rgba(220, 220, 220, 1)"
-                        : "rgba(75, 192, 192, 1)",
-                    pointBackgroundColor:
-                      index === 0
-                        ? "rgba(220, 220, 220, 1)"
-                        : "rgba(75, 192, 192, 1)",
-                  })),
-                }}
-              />
-            </div>
-          </CCardBody>
-        </CCard>
-      </CCol>
-      <CCol xs={12}>
-        <CCard className="mb-4">
-          <CCardHeader>Έξοδα</CCardHeader>
-          <CCardBody>
-            <div style={{ overflowX: "auto" }}>
-              <CChartDoughnut
-                data={{
-                  labels: expenseData.labels,
-                  datasets: expenseData.datasets.map((dataset, index) => ({
-                    ...dataset,
-                    backgroundColor:
-                      index === 0
-                        ? [
-                            "#41B883",
-                            "#E46651",
-                            "#00D8FF",
-                            "#DD1B16",
-                            "#FF6384",
-                            "#36A2EB",
-                            "#FFCE56",
-                            "#4BC0C0",
-                            "#9966FF",
-                            "#FF9F40",
-                          ]
-                        : [
-                            "#FFCE56",
-                            "#4BC0C0",
-                            "#9966FF",
-                            "#FF9F40",
-                            "#FF6384",
-                            "#36A2EB",
-                            "#FFCE56",
-                            "#4BC0C0",
-                            "#9966FF",
-                            "#FF9F40",
-                          ],
-                  })),
-                }}
-              />
-            </div>
-          </CCardBody>
-        </CCard>
-      </CCol>
-      <CCol xs={12}>
-        <CCard className="mb-4">
-          <CCardHeader>Έξοδα</CCardHeader>
-          <CCardBody>
-            <div style={{ overflowX: "auto" }}>
-              <CChartPie
-                data={{
-                  labels: expenseData.labels,
-                  datasets: expenseData.datasets.map((dataset, index) => ({
-                    ...dataset,
-                    backgroundColor:
-                      index === 0
-                        ? [
-                            "#FF6384",
-                            "#36A2EB",
-                            "#FFCE56",
-                            "#4BC0C0",
-                            "#9966FF",
-                            "#FF9F40",
-                          ]
-                        : [
-                            "#FFCE56",
-                            "#4BC0C0",
-                            "#9966FF",
-                            "#FF9F40",
-                            "#FF6384",
-                            "#36A2EB",
-                          ],
-                  })),
-                }}
-              />
-            </div>
-          </CCardBody>
-        </CCard>
-      </CCol> */}
+      {profitOrLoss !== null && (
+        <CCol xs={12}>
+          <CCard className="mb-4">
+            <CCardHeader>Σύνολο Έσοδα vs Έξοδα</CCardHeader>
+            <CCardBody>
+              <div style={{ overflowX: "auto" }}>
+                <CChartDoughnut
+                  data={{
+                    labels: ["Σύνολο Έσοδα", "Σύνολο Έξοδα"],
+                    datasets: [
+                      {
+                        data: [totalIncome, totalExpenses],
+                        backgroundColor: ["#41B883", "#E46651"],
+                      },
+                    ],
+                  }}
+                  options={{
+                    plugins: {
+                      datalabels: {
+                        display: true,
+                        formatter: () => "",
+                      },
+                      tooltip: {
+                        enabled: true,
+                      },
+                    },
+                  }}
+                  plugins={[
+                    {
+                      beforeDraw: function (chart) {
+                        const ctx = chart.ctx;
+                        ctx.restore();
+                        const fontSize = (chart.height / 460).toFixed(2);
+                        ctx.font = `${fontSize}em sans-serif`;
+                        ctx.textBaseline = "middle";
+                        const text =
+                          profitOrLoss >= 0
+                            ? `Κέρδος: €${profitOrLoss}`
+                            : `Ζημία: €${Math.abs(profitOrLoss)}`;
+                        const textX = Math.round(
+                          (chart.width - ctx.measureText(text).width) / 2
+                        );
+                        const textY = chart.height / 2;
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                      },
+                    },
+                  ]}
+                />
+              </div>
+            </CCardBody>
+          </CCard>
+        </CCol>
+      )}
+      {VATDifference !== null && (
+        <CCol xs={12}>
+          <CCard className="mb-4">
+            <CCardHeader>Σύνολο ΦΠΑ Έσοδα vs Έξοδα</CCardHeader>
+            <CCardBody>
+              <div style={{ overflowX: "auto" }}>
+                <CChartDoughnut
+                  data={{
+                    labels: ["Σύνολο ΦΠΑ Έσοδα", "Σύνολο ΦΠΑ Έξοδα"],
+                    datasets: [
+                      {
+                        data: [totalVATIncome, totalVATExpenses],
+                        backgroundColor: ["#41B883", "#E46651"],
+                      },
+                    ],
+                  }}
+                  options={{
+                    plugins: {
+                      datalabels: {
+                        display: true,
+                        formatter: () => "",
+                      },
+                      tooltip: {
+                        enabled: true,
+                      },
+                    },
+                  }}
+                  plugins={[
+                    {
+                      beforeDraw: function (chart) {
+                        const ctx = chart.ctx;
+                        ctx.restore();
+                        const fontSize = (chart.height / 460).toFixed(2);
+                        ctx.font = `${fontSize}em sans-serif`;
+                        ctx.textBaseline = "middle";
+                        const text =
+                          VATDifference >= 0
+                            ? `Διαφορά ΦΠΑ: €${VATDifference}`
+                            : `Διαφορά ΦΠΑ: €${Math.abs(VATDifference)}`;
+                        const textX = Math.round(
+                          (chart.width - ctx.measureText(text).width) / 2
+                        );
+                        const textY = chart.height / 2;
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                      },
+                    },
+                  ]}
+                />
+              </div>
+            </CCardBody>
+          </CCard>
+        </CCol>
+      )}
     </CRow>
   );
 };
