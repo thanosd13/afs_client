@@ -167,7 +167,7 @@ const Charts = () => {
           const currentYear = new Date();
           const processedData = processData(response.data.data, currentYear);
           setExpenseData(processedData);
-          setTotalExpenses(processedData.total);
+          setTotalExpenses(processedData.total.toFixed(2));
           setTotalVATExpenses(processedData.totalVAT);
         }
       } catch (error) {
@@ -375,6 +375,29 @@ const Charts = () => {
           </CCard>
         </CCol>
       )}
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Σύνολο Τζίρος vs Έξοδα</CCardHeader>
+          <CCardBody>
+            <div
+              style={{
+                overflowX: "auto",
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "flex-start",
+                flexDirection: "column",
+              }}
+            >
+              <span style={{ fontSize: "1.5rem" }}>
+                Συνολικός Τζίρος: <b>{(B2BTotal + B2CTotal).toFixed(2)}</b>
+              </span>
+              <span style={{ fontSize: "1.5rem" }}>
+                Συνολικά Έξοδα: <b>{totalExpenses}</b>
+              </span>
+            </div>
+          </CCardBody>
+        </CCard>
+      </CCol>
     </CRow>
   );
 };
