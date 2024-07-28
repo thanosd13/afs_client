@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { CCard, CCardBody, CCol, CCardHeader, CRow } from "@coreui/react";
 import { CChartBar, CChartDoughnut } from "@coreui/react-chartjs";
-import ChartDataLabels from "chartjs-plugin-datalabels";
 import UserService from "../../services/UserService";
 
 const Charts = () => {
@@ -19,6 +18,12 @@ const Charts = () => {
     labels: [],
     datasets: [],
   });
+
+  const formatNumber = (number) => {
+    return new Intl.NumberFormat("el-GR", { minimumFractionDigits: 2 }).format(
+      number
+    );
+  };
 
   useEffect(() => {
     const processData = (data, currentYear) => {
@@ -167,7 +172,7 @@ const Charts = () => {
           const currentYear = new Date();
           const processedData = processData(response.data.data, currentYear);
           setExpenseData(processedData);
-          setTotalExpenses(processedData.total.toFixed(2));
+          setTotalExpenses(processedData.total);
           setTotalVATExpenses(processedData.totalVAT);
         }
       } catch (error) {
@@ -199,10 +204,12 @@ const Charts = () => {
 
   useEffect(() => {
     if (totalIncome !== null && totalExpenses !== null) {
-      setProfitOrLoss((totalIncome - totalExpenses).toFixed(2));
+      const profitOrLossValue = totalIncome - totalExpenses;
+      setProfitOrLoss(profitOrLossValue);
     }
     if (totalVATIncome !== null && totalVATExpenses !== null) {
-      setVATDifference((totalVATIncome - totalVATExpenses).toFixed(2));
+      const VATDifferenceValue = totalVATIncome - totalVATExpenses;
+      setVATDifference(VATDifferenceValue);
     }
   }, [totalIncome, totalExpenses, totalVATIncome, totalVATExpenses]);
 
@@ -222,6 +229,19 @@ const Charts = () => {
                   })),
                 }}
                 labels="dates"
+                options={{
+                  tooltips: {
+                    callbacks: {
+                      label: function (tooltipItem, data) {
+                        const datasetLabel =
+                          data.datasets[tooltipItem.datasetIndex].label || "";
+                        return `${datasetLabel}: ${formatNumber(
+                          tooltipItem.yLabel
+                        )}`;
+                      },
+                    },
+                  },
+                }}
               />
             </div>
           </CCardBody>
@@ -241,6 +261,19 @@ const Charts = () => {
                   })),
                 }}
                 labels="dates"
+                options={{
+                  tooltips: {
+                    callbacks: {
+                      label: function (tooltipItem, data) {
+                        const datasetLabel =
+                          data.datasets[tooltipItem.datasetIndex].label || "";
+                        return `${datasetLabel}: ${formatNumber(
+                          tooltipItem.yLabel
+                        )}`;
+                      },
+                    },
+                  },
+                }}
               />
             </div>
           </CCardBody>
@@ -262,6 +295,19 @@ const Charts = () => {
                   ),
                 }}
                 labels="dates"
+                options={{
+                  tooltips: {
+                    callbacks: {
+                      label: function (tooltipItem, data) {
+                        const datasetLabel =
+                          data.datasets[tooltipItem.datasetIndex].label || "";
+                        return `${datasetLabel}: ${formatNumber(
+                          tooltipItem.yLabel
+                        )}`;
+                      },
+                    },
+                  },
+                }}
               />
             </div>
           </CCardBody>
@@ -284,6 +330,15 @@ const Charts = () => {
                     ],
                   }}
                   options={{
+                    tooltips: {
+                      callbacks: {
+                        label: function (tooltipItem, data) {
+                          return formatNumber(
+                            data.datasets[0].data[tooltipItem.index]
+                          );
+                        },
+                      },
+                    },
                     plugins: {
                       datalabels: {
                         display: true,
@@ -299,13 +354,17 @@ const Charts = () => {
                       beforeDraw: function (chart) {
                         const ctx = chart.ctx;
                         ctx.restore();
-                        const fontSize = (chart.height / 460).toFixed(2);
+                        const mobile =
+                          window.matchMedia("(max-width: 768px)").matches;
+                        const fontSize = (
+                          chart.height / (mobile ? 660 : 460)
+                        ).toFixed(2);
                         ctx.font = `${fontSize}em sans-serif`;
                         ctx.textBaseline = "middle";
                         const text =
                           profitOrLoss >= 0
-                            ? `Κέρδος: €${profitOrLoss}`
-                            : `Ζημία: €${Math.abs(profitOrLoss)}`;
+                            ? `Κέρδος: €${formatNumber(profitOrLoss)}`
+                            : `Ζημία: €${formatNumber(Math.abs(profitOrLoss))}`;
                         const textX = Math.round(
                           (chart.width - ctx.measureText(text).width) / 2
                         );
@@ -338,6 +397,15 @@ const Charts = () => {
                     ],
                   }}
                   options={{
+                    tooltips: {
+                      callbacks: {
+                        label: function (tooltipItem, data) {
+                          return formatNumber(
+                            data.datasets[0].data[tooltipItem.index]
+                          );
+                        },
+                      },
+                    },
                     plugins: {
                       datalabels: {
                         display: true,
@@ -353,13 +421,19 @@ const Charts = () => {
                       beforeDraw: function (chart) {
                         const ctx = chart.ctx;
                         ctx.restore();
-                        const fontSize = (chart.height / 460).toFixed(2);
+                        const mobile =
+                          window.matchMedia("(max-width: 768px)").matches;
+                        const fontSize = (
+                          chart.height / (mobile ? 660 : 460)
+                        ).toFixed(2);
                         ctx.font = `${fontSize}em sans-serif`;
                         ctx.textBaseline = "middle";
                         const text =
                           VATDifference >= 0
-                            ? `ΦΠΑ Κέρδος: €${VATDifference}`
-                            : `ΦΠΑ Ζημία: €${Math.abs(VATDifference)}`;
+                            ? `ΦΠΑ προς απόδοση: €${formatNumber(VATDifference)}`
+                            : `ΦΠΑ προς επιστροφή: €${formatNumber(
+                                Math.abs(VATDifference)
+                              )}`;
                         const textX = Math.round(
                           (chart.width - ctx.measureText(text).width) / 2
                         );
@@ -389,10 +463,10 @@ const Charts = () => {
               }}
             >
               <span style={{ fontSize: "1.5rem" }}>
-                Συνολικός Τζίρος: <b>{(B2BTotal + B2CTotal).toFixed(2)}</b>
+                Συνολικός Τζίρος: <b>{formatNumber(B2BTotal + B2CTotal)}</b>
               </span>
               <span style={{ fontSize: "1.5rem" }}>
-                Συνολικά Έξοδα: <b>{totalExpenses}</b>
+                Συνολικά Έξοδα: <b>{formatNumber(totalExpenses)}</b>
               </span>
             </div>
           </CCardBody>
