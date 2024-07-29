@@ -49,6 +49,32 @@ class UserService {
     });
   }
 
+  requestIncomeWithDates(id, dateFrom, dateTo) {
+    return axios.post(
+      API_URL + "/user/requestIncomeWithDates/" + id,
+      {
+        dateFrom,
+        dateTo,
+      },
+      {
+        headers: AuthHeader(),
+      }
+    );
+  }
+
+  requestExpensesWithDates(id, dateFrom, dateTo) {
+    return axios.post(
+      API_URL + "/user/requestExpensesWithDates/" + id,
+      {
+        dateFrom,
+        dateTo,
+      },
+      {
+        headers: AuthHeader(),
+      }
+    );
+  }
+
   logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("id");

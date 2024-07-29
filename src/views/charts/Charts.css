@@ -1,0 +1,15 @@
+@import "rsuite/dist/rsuite.css";
+
+.search_btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap:0.35rem;
+    background-color: #1A8AAE !important;
+    border-color: #1A8AAE !important;
+}
+
+.search_btn:hover {
+    background-color: #5ba0b7 !important;
+    border-color: #5ba0b7 !important;
+}
