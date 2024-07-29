@@ -50,6 +50,14 @@ const Charts = () => {
     );
   };
 
+  const formatDate = (date) => {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   const processData = (data, currentYear) => {
     if (!Array.isArray(data)) {
       data = [data];
@@ -212,7 +220,11 @@ const Charts = () => {
       setSpinner(true);
       setShowWithheldTaxes(false);
       const id = localStorage.getItem("id");
-      const response = await UserService.requestExpensesWithDates(id, from, to);
+      const response = await UserService.requestExpensesWithDates(
+        id,
+        formatDate(from),
+        formatDate(to)
+      );
       if (response.status === 200) {
         const processedData = processWithheldAmountData(
           response.data.data,
@@ -235,13 +247,13 @@ const Charts = () => {
       const id = localStorage.getItem("id");
       const incomeResponse = await UserService.requestIncomeWithDates(
         id,
-        from,
-        to
+        formatDate(from),
+        formatDate(to)
       );
       const expenseResponse = await UserService.requestExpensesWithDates(
         id,
-        from,
-        to
+        formatDate(from),
+        formatDate(to)
       );
 
       if (incomeResponse.status === 200 && expenseResponse.status === 200) {
