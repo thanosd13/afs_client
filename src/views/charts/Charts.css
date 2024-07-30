@@ -13,3 +13,10 @@
     background-color: #5ba0b7 !important;
     border-color: #5ba0b7 !important;
 }
+
+
+@media only screen and (max-width: 768px) {
+    .mobile-search {
+        padding-top: 1rem;
+    }
+  }

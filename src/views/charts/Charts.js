@@ -290,13 +290,13 @@ const Charts = () => {
       const id = localStorage.getItem("id");
       const incomeResponse = await UserService.requestIncomeWithDates(
         id,
-        from,
-        to
+        formatDate(from),
+        formatDate(to)
       );
       const expenseResponse = await UserService.requestExpensesWithDates(
         id,
-        from,
-        to
+        formatDate(from),
+        formatDate(to)
       );
 
       if (incomeResponse.status === 200 && expenseResponse.status === 200) {
@@ -341,6 +341,24 @@ const Charts = () => {
       fetchVATWithDates(dateFromVAT, dateToVAT);
     }
   };
+
+  useEffect(() => {
+    // Calculate the last three months' date range
+    const currentDate = new Date();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(currentDate.getMonth() - 3);
+
+    // Set default date ranges for Profit/Loss and VAT
+    setDateFromProfitLoss(threeMonthsAgo);
+    setDateToProfitLoss(currentDate);
+    setDateFromVAT(threeMonthsAgo);
+    setDateToVAT(currentDate);
+
+    // Fetch data for the last three months
+    fetchWithheldAmounts(threeMonthsAgo, currentDate);
+    fetchProfitLossWithDates(threeMonthsAgo, currentDate);
+    fetchVATWithDates(threeMonthsAgo, currentDate);
+  }, []);
 
   return (
     <CRow>
@@ -476,7 +494,7 @@ const Charts = () => {
                   justifyContent: "center",
                   gap: "1rem",
                 }}
-                className="col-sm-3 col-lg-3"
+                className="col-sm-3 col-lg-3 mobile-search"
               >
                 <CButton
                   color="primary"
@@ -575,7 +593,7 @@ const Charts = () => {
                   justifyContent: "center",
                   gap: "1rem",
                 }}
-                className="col-sm-3 col-lg-3"
+                className="col-sm-3 col-lg-3 mobile-search"
               >
                 <CButton
                   color="primary"
@@ -705,7 +723,7 @@ const Charts = () => {
                   justifyContent: "center",
                   gap: "1rem",
                 }}
-                className="col-sm-3 col-lg-3"
+                className="col-sm-3 col-lg-3 mobile-search"
               >
                 <CButton
                   color="primary"
