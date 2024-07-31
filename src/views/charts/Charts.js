@@ -5,26 +5,22 @@ import {
   CCol,
   CCardHeader,
   CRow,
-  CButton,
   CSpinner,
+  CButton,
 } from "@coreui/react";
 import { CChartBar, CChartDoughnut } from "@coreui/react-chartjs";
+import UserService from "../../services/UserService";
+import { DatePicker } from "rsuite";
 import { FaSearch } from "react-icons/fa";
 import "./Charts.css";
-import { DatePicker } from "rsuite";
-import UserService from "../../services/UserService";
 
 const Charts = () => {
   const [incomeData, setIncomeData] = useState({ labels: [], datasets: [] });
   const [expenseData, setExpenseData] = useState({ labels: [], datasets: [] });
-  const [totalIncome, setTotalIncome] = useState(null);
-  const [totalExpenses, setTotalExpenses] = useState(null);
-  const [profitOrLoss, setProfitOrLoss] = useState(null);
-  const [totalVATIncome, setTotalVATIncome] = useState(null);
-  const [totalVATExpenses, setTotalVATExpenses] = useState(null);
-  const [VATDifference, setVATDifference] = useState(null);
-  const [B2BTotal, setB2BTotal] = useState(null);
-  const [B2CTotal, setB2CTotal] = useState(null);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalIncome, setTotalIncome] = useState(0);
+  const [B2BTotal, setB2BTotal] = useState(0);
+  const [B2CTotal, setB2CTotal] = useState(0);
   const [withheldAmountData, setWithheldAmountData] = useState({
     labels: [],
     datasets: [],
@@ -35,14 +31,18 @@ const Charts = () => {
   const [dateToProfitLoss, setDateToProfitLoss] = useState(null);
   const [dateFromVAT, setDateFromVAT] = useState(null);
   const [dateToVAT, setDateToVAT] = useState(null);
-  const [showWithheldTaxes, setShowWithheldTaxes] = useState(false);
-  const [showIncomeExpenses, setShowIncomeExpenses] = useState(false);
-  const [showProfitLoss, setShowProfitLoss] = useState(false);
-  const [showVAT, setShowVAT] = useState(false);
-  const [spinner, setSpinner] = useState(false);
   const [spinnerIncomeExpenses, setSpinnerIncomeExpenses] = useState(false);
-  const [spinnerProfitLoss, setSpinnerProfitLoss] = useState(false);
+  const [spinnerProfitLoss, setSpinnerProfitLoss] = useState(0);
+  const [showIncomeExpenses, setShowIncomeExpenses] = useState(false);
   const [spinnerVAT, setSpinnerVAT] = useState(false);
+  const [profitOrLoss, setProfitOrLoss] = useState(0);
+  const [lastQuarterIncome, setLastQuarterIncome] = useState(0);
+  const [lastQuarterExpenses, setLastQuarterExpenses] = useState(0);
+  const [lastQuarterB2B, setLastQuarterB2B] = useState(0);
+  const [lastQuarterB2C, setLastQuarterB2C] = useState(0);
+  const [lastQuarterVATIncome, setLastQuarterVATIncome] = useState(0);
+  const [lastQuarterVATExpenses, setLastQuarterVATExpenses] = useState(0);
+  const [lastQuarterProfitOrLoss, setLastQuarterProfitOrLoss] = useState(null);
 
   const formatNumber = (number) => {
     return new Intl.NumberFormat("el-GR", { minimumFractionDigits: 2 }).format(
@@ -133,38 +133,55 @@ const Charts = () => {
     };
   };
 
-  const processWithheldAmountData = (data, from, to) => {
+  const processLastQuarterData = (data, type) => {
     if (!Array.isArray(data)) {
       data = [data];
     }
 
-    const aggregatedData = {};
-    const labels = [];
-    const startDate = new Date(from);
-    const endDate = new Date(to);
-    const currentYear = startDate.getFullYear();
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    let totalB2B = 0;
+    let totalB2C = 0;
+    let totalVATIncome = 0;
+    let totalVATExpenses = 0;
+    let totalWithheld = 0;
 
-    while (startDate <= endDate) {
-      const label = `${String(startDate.getMonth() + 1).padStart(2, "0")}/${startDate.getFullYear()}`;
-      aggregatedData[label] = 0;
-      labels.push(label);
-      startDate.setMonth(startDate.getMonth() + 1);
-    }
+    const currentDate = new Date();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(currentDate.getMonth() - 3);
 
     data.forEach((item) => {
       const date = new Date(item.issueDate);
-      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-
-      if (aggregatedData[label] !== undefined) {
-        aggregatedData[label] += parseFloat(item.withheldAmount);
+      if (date >= threeMonthsAgo && date <= currentDate) {
+        const grossValue = parseFloat(item.grossValue);
+        const vatAmount = parseFloat(item.vatAmount);
+        const withheldAmount = parseFloat(item.withheldAmount);
+        if (type === "income") {
+          totalIncome += grossValue;
+          totalVATIncome += vatAmount;
+          if (
+            !["11.1", "11.2", "11.3", "11.4", "11.5"].includes(item.invType)
+          ) {
+            totalB2B += grossValue;
+          } else {
+            totalB2C += grossValue;
+          }
+        } else if (type === "expense") {
+          totalExpenses += grossValue;
+          totalVATExpenses += vatAmount;
+        }
+        totalWithheld += withheldAmount;
       }
     });
 
-    const withheldData = labels.map((label) => aggregatedData[label]);
-
     return {
-      labels,
-      datasets: [{ label: "Παρακρατούμενοι φόροι", data: withheldData }],
+      totalIncome,
+      totalExpenses,
+      totalB2B,
+      totalB2C,
+      totalVATIncome,
+      totalVATExpenses,
+      totalWithheld,
     };
   };
 
@@ -176,11 +193,17 @@ const Charts = () => {
       if (response.status === 200) {
         const currentYear = new Date();
         const processedData = processData(response.data.data, currentYear);
+        const lastQuarterData = processLastQuarterData(
+          response.data.data,
+          "income"
+        );
         setIncomeData(processedData);
-        setTotalIncome(processedData.total);
-        setTotalVATIncome(processedData.totalVAT);
         setB2BTotal(processedData.B2B);
         setB2CTotal(processedData.B2C);
+        setLastQuarterB2B(lastQuarterData.totalB2B);
+        setLastQuarterB2C(lastQuarterData.totalB2C);
+        setLastQuarterIncome(lastQuarterData.totalIncome);
+        setLastQuarterVATIncome(lastQuarterData.totalVATIncome);
         setShowIncomeExpenses(true);
       }
       setSpinnerIncomeExpenses(false);
@@ -190,17 +213,31 @@ const Charts = () => {
     }
   };
 
-  const fetchExpenses = async () => {
+  const fetchExpensesAndWithheldAmounts = async () => {
     try {
       setSpinnerIncomeExpenses(true);
       const id = localStorage.getItem("id");
       const response = await UserService.requestExpenses(id);
       if (response.status === 200) {
         const currentYear = new Date();
-        const processedData = processData(response.data.data, currentYear);
-        setExpenseData(processedData);
-        setTotalExpenses(processedData.total);
-        setTotalVATExpenses(processedData.totalVAT);
+        const processedExpenseData = processData(
+          response.data.data,
+          currentYear
+        );
+        const lastQuarterData = processLastQuarterData(
+          response.data.data,
+          "expense"
+        );
+        setExpenseData(processedExpenseData);
+        setTotalExpenses(processedExpenseData.total);
+        setLastQuarterExpenses(lastQuarterData.totalExpenses);
+        setLastQuarterVATExpenses(lastQuarterData.totalVATExpenses);
+
+        const processedWithheldAmountData = processWithheldAmountData(
+          response.data.data
+        );
+        setWithheldAmountData(processedWithheldAmountData);
+
         setShowIncomeExpenses(true);
       }
       setSpinnerIncomeExpenses(false);
@@ -210,15 +247,225 @@ const Charts = () => {
     }
   };
 
+  const processWithheldAmountData = (data) => {
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
+
+    const aggregatedData = {};
+    const currentDate = new Date();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(currentDate.getMonth() - 3);
+
+    for (
+      let date = new Date(threeMonthsAgo);
+      date <= new Date();
+      date.setMonth(date.getMonth() + 1)
+    ) {
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+      aggregatedData[label] = 0;
+    }
+
+    data.forEach((item) => {
+      const date = new Date(item.issueDate);
+      if (date >= threeMonthsAgo && date <= new Date()) {
+        const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+        aggregatedData[label] += parseFloat(item.withheldAmount);
+      }
+    });
+
+    const labels = Object.keys(aggregatedData).sort((a, b) => {
+      const [monthA, yearA] = a.split("/").map(Number);
+      const [monthB, yearB] = b.split("/").map(Number);
+      return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+    });
+
+    const withheldData = labels.map((label) => aggregatedData[label]);
+
+    return {
+      labels,
+      datasets: [{ label: "Παρακρατούμενοι φόροι", data: withheldData }],
+    };
+  };
+
+  const processDataWithDates = (data, startDate, endDate) => {
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
+
+    const aggregatedData = {};
+    let totalVAT = 0;
+    let B2B = 0;
+    let B2C = 0;
+    let total = 0;
+
+    for (
+      let date = new Date(startDate);
+      date <= endDate;
+      date.setMonth(date.getMonth() + 1)
+    ) {
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+      aggregatedData[label] = 0;
+    }
+
+    data.forEach((item) => {
+      const date = new Date(item.issueDate);
+      if (date >= startDate && date <= endDate) {
+        const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+        total += parseFloat(item.grossValue);
+        totalVAT += parseFloat(item.vatAmount);
+        aggregatedData[label] += parseFloat(item.grossValue);
+
+        // Calculate B2B and B2C totals
+        if (!["11.1", "11.2", "11.3", "11.4", "11.5"].includes(item.invType)) {
+          B2B += parseFloat(item.grossValue);
+        } else {
+          B2C += parseFloat(item.grossValue);
+        }
+      }
+    });
+
+    const labels = Object.keys(aggregatedData).sort((a, b) => {
+      const [monthA, yearA] = a.split("/").map(Number);
+      const [monthB, yearB] = b.split("/").map(Number);
+      return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+    });
+
+    const datasetData = labels.map((label) => aggregatedData[label]);
+
+    return {
+      labels,
+      datasets: [{ label: "Έσοδα/Έξοδα", data: datasetData }],
+      total,
+      totalVAT,
+      B2B,
+      B2C,
+    };
+  };
+
+  const processVATDataWithDates = (
+    incomeData,
+    expenseData,
+    startDate,
+    endDate
+  ) => {
+    const processVATData = (data) => {
+      if (!Array.isArray(data)) {
+        data = [data];
+      }
+
+      const aggregatedData = {};
+      let totalVAT = 0;
+
+      for (
+        let date = new Date(startDate);
+        date <= endDate;
+        date.setMonth(date.getMonth() + 1)
+      ) {
+        const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+        aggregatedData[label] = 0;
+      }
+
+      data.forEach((item) => {
+        const date = new Date(item.issueDate);
+        if (date >= startDate && date <= endDate) {
+          const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+          totalVAT += parseFloat(item.vatAmount);
+          aggregatedData[label] += parseFloat(item.vatAmount);
+        }
+      });
+
+      const labels = Object.keys(aggregatedData).sort((a, b) => {
+        const [monthA, yearA] = a.split("/").map(Number);
+        const [monthB, yearB] = b.split("/").map(Number);
+        return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+      });
+
+      const datasetData = labels.map((label) => aggregatedData[label]);
+
+      return {
+        labels,
+        datasets: [{ label: "ΦΠΑ", data: datasetData }],
+        totalVAT,
+      };
+    };
+
+    const incomeVATData = processVATData(incomeData);
+    const expenseVATData = processVATData(expenseData);
+
+    return {
+      incomeVATData,
+      expenseVATData,
+    };
+  };
+
+  const processWithheldAmountDataWithDates = (data, startDate, endDate) => {
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
+
+    const aggregatedData = {};
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    for (
+      let date = new Date(start);
+      date <= end;
+      date.setMonth(date.getMonth() + 1)
+    ) {
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+      aggregatedData[label] = 0;
+    }
+
+    data.forEach((item) => {
+      const date = new Date(item.issueDate);
+      if (date >= start && date <= end) {
+        const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+        aggregatedData[label] += parseFloat(item.withheldAmount);
+      }
+    });
+
+    const labels = Object.keys(aggregatedData).sort((a, b) => {
+      const [monthA, yearA] = a.split("/").map(Number);
+      const [monthB, yearB] = b.split("/").map(Number);
+      return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+    });
+
+    const withheldData = labels.map((label) => aggregatedData[label]);
+
+    return {
+      labels,
+      datasets: [{ label: "Παρακρατούμενοι φόροι", data: withheldData }],
+    };
+  };
+
   useEffect(() => {
-    fetchIncome();
-    fetchExpenses();
+    const fetchAllData = async () => {
+      await fetchIncome();
+      await fetchExpensesAndWithheldAmounts();
+    };
+    fetchAllData();
   }, []);
+
+  useEffect(() => {
+    if (incomeData.labels.length && expenseData.labels.length) {
+      const updatedProfitOrLoss = B2BTotal + B2CTotal - totalExpenses;
+      const updatedLastQuarterProfitOrLoss =
+        lastQuarterIncome - lastQuarterExpenses;
+      setProfitOrLoss(updatedProfitOrLoss);
+      setLastQuarterProfitOrLoss(updatedLastQuarterProfitOrLoss);
+    }
+  }, [
+    B2BTotal,
+    B2CTotal,
+    totalExpenses,
+    lastQuarterIncome,
+    lastQuarterExpenses,
+  ]);
 
   const fetchWithheldAmounts = async (from, to) => {
     try {
-      setSpinner(true);
-      setShowWithheldTaxes(false);
+      setSpinnerIncomeExpenses(true);
       const id = localStorage.getItem("id");
       const response = await UserService.requestExpensesWithDates(
         id,
@@ -226,15 +473,14 @@ const Charts = () => {
         formatDate(to)
       );
       if (response.status === 200) {
-        const processedData = processWithheldAmountData(
+        const processedData = processWithheldAmountDataWithDates(
           response.data.data,
           from,
           to
         );
-        setSpinner(false);
         setWithheldAmountData(processedData);
-        setShowWithheldTaxes(true);
       }
+      setSpinnerIncomeExpenses(false);
     } catch (error) {
       console.log(error);
     }
@@ -243,7 +489,6 @@ const Charts = () => {
   const fetchProfitLossWithDates = async (from, to) => {
     try {
       setSpinnerProfitLoss(true);
-      setShowProfitLoss(false);
       const id = localStorage.getItem("id");
       const incomeResponse = await UserService.requestIncomeWithDates(
         id,
@@ -257,24 +502,33 @@ const Charts = () => {
       );
 
       if (incomeResponse.status === 200 && expenseResponse.status === 200) {
-        const processedIncomeData = processData(
+        const processedIncomeData = processDataWithDates(
           incomeResponse.data.data,
-          new Date(from)
+          new Date(from),
+          new Date(to)
         );
-        const processedExpenseData = processData(
+        const processedExpenseData = processDataWithDates(
           expenseResponse.data.data,
-          new Date(from)
+          new Date(from),
+          new Date(to)
         );
 
-        setTotalIncome(processedIncomeData.total);
+        console.log("income with dates:", processedIncomeData);
+        console.log("expenses with dates:", processedExpenseData);
+        // setTotalIncome(processedIncomeData.total);
+        setTotalExpenses(processedExpenseData.total);
         setB2BTotal(processedIncomeData.B2B);
         setB2CTotal(processedIncomeData.B2C);
-        setTotalExpenses(processedExpenseData.total);
+        setLastQuarterB2B(processedIncomeData.B2B);
+        setLastQuarterB2C(processedIncomeData.B2C);
+        setLastQuarterExpenses(processedExpenseData.total);
+        setShowIncomeExpenses(true);
 
-        const profitOrLossValue =
-          processedIncomeData.total - processedExpenseData.total;
-        setProfitOrLoss(profitOrLossValue);
-        setShowProfitLoss(true);
+        const updatedProfitOrLoss =
+          processedIncomeData.B2B +
+          processedIncomeData.B2C -
+          processedExpenseData.total;
+        setLastQuarterProfitOrLoss(updatedProfitOrLoss);
       }
       setSpinnerProfitLoss(false);
     } catch (error) {
@@ -286,7 +540,6 @@ const Charts = () => {
   const fetchVATWithDates = async (from, to) => {
     try {
       setSpinnerVAT(true);
-      setShowVAT(false);
       const id = localStorage.getItem("id");
       const incomeResponse = await UserService.requestIncomeWithDates(
         id,
@@ -300,22 +553,15 @@ const Charts = () => {
       );
 
       if (incomeResponse.status === 200 && expenseResponse.status === 200) {
-        const processedIncomeData = processData(
+        const processedData = processVATDataWithDates(
           incomeResponse.data.data,
-          new Date(from)
-        );
-        const processedExpenseData = processData(
           expenseResponse.data.data,
-          new Date(from)
+          new Date(from),
+          new Date(to)
         );
 
-        setTotalVATIncome(processedIncomeData.totalVAT);
-        setTotalVATExpenses(processedExpenseData.totalVAT);
-
-        const VATDifferenceValue =
-          processedIncomeData.totalVAT - processedExpenseData.totalVAT;
-        setVATDifference(VATDifferenceValue);
-        setShowVAT(true);
+        setLastQuarterVATIncome(processedData.incomeVATData.totalVAT);
+        setLastQuarterVATExpenses(processedData.expenseVATData.totalVAT);
       }
       setSpinnerVAT(false);
     } catch (error) {
@@ -341,24 +587,6 @@ const Charts = () => {
       fetchVATWithDates(dateFromVAT, dateToVAT);
     }
   };
-
-  useEffect(() => {
-    // Calculate the last three months' date range
-    const currentDate = new Date();
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(currentDate.getMonth() - 3);
-
-    // Set default date ranges for Profit/Loss and VAT
-    setDateFromProfitLoss(threeMonthsAgo);
-    setDateToProfitLoss(currentDate);
-    setDateFromVAT(threeMonthsAgo);
-    setDateToVAT(currentDate);
-
-    // Fetch data for the last three months
-    fetchWithheldAmounts(threeMonthsAgo, currentDate);
-    fetchProfitLossWithDates(threeMonthsAgo, currentDate);
-    fetchVATWithDates(threeMonthsAgo, currentDate);
-  }, []);
 
   return (
     <CRow>
@@ -446,7 +674,7 @@ const Charts = () => {
       </CCol>
       <CCol xs={12}>
         <CCard className="mb-4">
-          <CCardHeader>Παρακρατούμενοι φόροι</CCardHeader>
+          <CCardHeader>Παρακρατούμενοι Φόροι</CCardHeader>
           <CCardBody>
             <div style={{ paddingBottom: "3rem" }} className="row">
               <div
@@ -494,7 +722,7 @@ const Charts = () => {
                   justifyContent: "center",
                   gap: "1rem",
                 }}
-                className="col-sm-3 col-lg-3 mobile-search"
+                className="col-sm-3 col-lg-3"
               >
                 <CButton
                   color="primary"
@@ -506,12 +734,11 @@ const Charts = () => {
                 </CButton>
               </div>
             </div>
-            {spinner && (
+            {spinnerIncomeExpenses ? (
               <div className="text-center">
                 <CSpinner />
               </div>
-            )}
-            {showWithheldTaxes && (
+            ) : (
               <div style={{ overflowX: "auto" }}>
                 <CChartBar
                   data={{
@@ -564,7 +791,7 @@ const Charts = () => {
                   oneTap
                   selected={dateFromProfitLoss}
                   onChange={(date) => setDateFromProfitLoss(date)}
-                  disabledDate={(date) => date > new Date()}
+                  shouldDisableDate={(date) => date > new Date()}
                 />
               </div>
               <div
@@ -605,69 +832,74 @@ const Charts = () => {
                 </CButton>
               </div>
             </div>
-            {spinnerProfitLoss && (
+            {spinnerProfitLoss ? (
               <div className="text-center">
                 <CSpinner />
               </div>
-            )}
-            {showProfitLoss && (
+            ) : (
               <div style={{ overflowX: "auto" }}>
-                <CChartDoughnut
-                  data={{
-                    labels: ["B2B Έσοδα", "B2C Έσοδα", "Σύνολο Έξοδα"],
-                    datasets: [
-                      {
-                        data: [B2BTotal, B2CTotal, totalExpenses],
-                        backgroundColor: ["#FFCE56", "#36A2EB", "#E46651"],
-                      },
-                    ],
-                  }}
-                  options={{
-                    tooltips: {
-                      callbacks: {
-                        label: function (tooltipItem, data) {
-                          return formatNumber(
-                            data.datasets[0].data[tooltipItem.index]
-                          );
+                {lastQuarterProfitOrLoss !== null && (
+                  <CChartDoughnut
+                    data={{
+                      labels: ["B2B Έσοδα", "B2C Έσοδα", "Σύνολο Έξοδα"],
+                      datasets: [
+                        {
+                          data: [
+                            lastQuarterB2B,
+                            lastQuarterB2C,
+                            lastQuarterExpenses,
+                          ],
+                          backgroundColor: ["#FFCE56", "#36A2EB", "#E46651"],
+                        },
+                      ],
+                    }}
+                    options={{
+                      tooltips: {
+                        callbacks: {
+                          label: function (tooltipItem, data) {
+                            return formatNumber(
+                              data.datasets[0].data[tooltipItem.index]
+                            );
+                          },
                         },
                       },
-                    },
-                    plugins: {
-                      datalabels: {
-                        display: true,
-                        formatter: () => "",
+                      plugins: {
+                        datalabels: {
+                          display: true,
+                          formatter: () => "",
+                        },
+                        tooltip: {
+                          enabled: true,
+                        },
                       },
-                      tooltip: {
-                        enabled: true,
+                    }}
+                    plugins={[
+                      {
+                        beforeDraw: function (chart) {
+                          const ctx = chart.ctx;
+                          ctx.restore();
+                          const mobile =
+                            window.matchMedia("(max-width: 768px)").matches;
+                          const fontSize = (
+                            chart.height / (mobile ? 660 : 460)
+                          ).toFixed(2);
+                          ctx.font = `${fontSize}em sans-serif`;
+                          ctx.textBaseline = "middle";
+                          const text =
+                            lastQuarterProfitOrLoss >= 0
+                              ? `Κέρδος: €${formatNumber(lastQuarterProfitOrLoss)}`
+                              : `Ζημία: €${formatNumber(Math.abs(lastQuarterProfitOrLoss))}`;
+                          const textX = Math.round(
+                            (chart.width - ctx.measureText(text).width) / 2
+                          );
+                          const textY = chart.height / 2;
+                          ctx.fillText(text, textX, textY);
+                          ctx.save();
+                        },
                       },
-                    },
-                  }}
-                  plugins={[
-                    {
-                      beforeDraw: function (chart) {
-                        const ctx = chart.ctx;
-                        ctx.restore();
-                        const mobile =
-                          window.matchMedia("(max-width: 768px)").matches;
-                        const fontSize = (
-                          chart.height / (mobile ? 660 : 460)
-                        ).toFixed(2);
-                        ctx.font = `${fontSize}em sans-serif`;
-                        ctx.textBaseline = "middle";
-                        const text =
-                          profitOrLoss >= 0
-                            ? `Κέρδος: €${formatNumber(profitOrLoss)}`
-                            : `Ζημία: €${formatNumber(Math.abs(profitOrLoss))}`;
-                        const textX = Math.round(
-                          (chart.width - ctx.measureText(text).width) / 2
-                        );
-                        const textY = chart.height / 2;
-                        ctx.fillText(text, textX, textY);
-                        ctx.save();
-                      },
-                    },
-                  ]}
-                />
+                    ]}
+                  />
+                )}
               </div>
             )}
           </CCardBody>
@@ -694,7 +926,7 @@ const Charts = () => {
                   oneTap
                   selected={dateFromVAT}
                   onChange={(date) => setDateFromVAT(date)}
-                  disabledDate={(date) => date > new Date()}
+                  shouldDisableDate={(date) => date > new Date()}
                 />
               </div>
               <div
@@ -735,71 +967,74 @@ const Charts = () => {
                 </CButton>
               </div>
             </div>
-            {spinnerVAT && (
+            {spinnerVAT ? (
               <div className="text-center">
                 <CSpinner />
               </div>
-            )}
-            {showVAT && (
+            ) : (
               <div style={{ overflowX: "auto" }}>
-                <CChartDoughnut
-                  data={{
-                    labels: ["Σύνολο ΦΠΑ Έσοδα", "Σύνολο ΦΠΑ Έξοδα"],
-                    datasets: [
-                      {
-                        data: [totalVATIncome, totalVATExpenses],
-                        backgroundColor: ["#41B883", "#E46651"],
-                      },
-                    ],
-                  }}
-                  options={{
-                    tooltips: {
-                      callbacks: {
-                        label: function (tooltipItem, data) {
-                          return formatNumber(
-                            data.datasets[0].data[tooltipItem.index]
-                          );
+                {lastQuarterProfitOrLoss !== null && (
+                  <CChartDoughnut
+                    data={{
+                      labels: ["ΦΠΑ Έσοδα", "ΦΠΑ Έξοδα"],
+                      datasets: [
+                        {
+                          data: [lastQuarterVATIncome, lastQuarterVATExpenses],
+                          backgroundColor: ["#41B883", "#E46651"],
+                        },
+                      ],
+                    }}
+                    options={{
+                      tooltips: {
+                        callbacks: {
+                          label: function (tooltipItem, data) {
+                            return formatNumber(
+                              data.datasets[0].data[tooltipItem.index]
+                            );
+                          },
                         },
                       },
-                    },
-                    plugins: {
-                      datalabels: {
-                        display: true,
-                        formatter: () => "",
+                      plugins: {
+                        datalabels: {
+                          display: true,
+                          formatter: () => "",
+                        },
+                        tooltip: {
+                          enabled: true,
+                        },
                       },
-                      tooltip: {
-                        enabled: true,
+                    }}
+                    plugins={[
+                      {
+                        beforeDraw: function (chart) {
+                          const ctx = chart.ctx;
+                          ctx.restore();
+                          const mobile =
+                            window.matchMedia("(max-width: 768px)").matches;
+                          const fontSize = (
+                            chart.height / (mobile ? 660 : 460)
+                          ).toFixed(2);
+                          ctx.font = `${fontSize}em sans-serif`;
+                          ctx.textBaseline = "middle";
+                          const text =
+                            lastQuarterVATIncome - lastQuarterVATExpenses >= 0
+                              ? `ΦΠΑ προς απόδοση: €${formatNumber(
+                                  lastQuarterVATIncome - lastQuarterVATExpenses
+                                )}`
+                              : `ΦΠΑ προς επιστροφή: €${formatNumber(
+                                  lastQuarterVATIncome - lastQuarterVATExpenses
+                                )}`;
+                          const textX = Math.round(
+                            (chart.width - ctx.measureText(text).width) / 2
+                          );
+                          const textY = chart.height / 2;
+                          ctx.fillText(text, textX, textY);
+                          ctx.save();
+                        },
                       },
-                    },
-                  }}
-                  plugins={[
-                    {
-                      beforeDraw: function (chart) {
-                        const ctx = chart.ctx;
-                        ctx.restore();
-                        const mobile =
-                          window.matchMedia("(max-width: 768px)").matches;
-                        const fontSize = (
-                          chart.height / (mobile ? 660 : 560)
-                        ).toFixed(2);
-                        ctx.font = `${fontSize}em sans-serif`;
-                        ctx.textBaseline = "middle";
-                        const text =
-                          VATDifference >= 0
-                            ? `ΦΠΑ προς απόδοση: €${formatNumber(VATDifference)}`
-                            : `ΦΠΑ προς επιστροφή: €${formatNumber(
-                                Math.abs(VATDifference)
-                              )}`;
-                        const textX = Math.round(
-                          (chart.width - ctx.measureText(text).width) / 2
-                        );
-                        const textY = chart.height / 2;
-                        ctx.fillText(text, textX, textY);
-                        ctx.save();
-                      },
-                    },
-                  ]}
-                />
+                    ]}
+                  />
+                )}
               </div>
             )}
           </CCardBody>

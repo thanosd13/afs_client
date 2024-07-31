@@ -1,440 +1,835 @@
-import React from "react";
-import classNames from "classnames";
-
+import React, { useEffect, useState } from "react";
 import {
-  CAvatar,
-  CButton,
-  CButtonGroup,
   CCard,
   CCardBody,
-  CCardFooter,
-  CCardHeader,
   CCol,
-  CProgress,
+  CCardHeader,
   CRow,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
+  CButton,
+  CSpinner,
 } from "@coreui/react";
-import CIcon from "@coreui/icons-react";
-import {
-  cibCcAmex,
-  cibCcApplePay,
-  cibCcMastercard,
-  cibCcPaypal,
-  cibCcStripe,
-  cibCcVisa,
-  cibGoogle,
-  cibFacebook,
-  cibLinkedin,
-  cifBr,
-  cifEs,
-  cifFr,
-  cifIn,
-  cifPl,
-  cifUs,
-  cibTwitter,
-  cilCloudDownload,
-  cilPeople,
-  cilUser,
-  cilUserFemale,
-} from "@coreui/icons";
+import { CChartBar, CChartDoughnut } from "@coreui/react-chartjs";
+import { FaSearch } from "react-icons/fa";
+import "./Charts.css";
+import { DatePicker } from "rsuite";
+import UserService from "../../services/UserService";
 
-import avatar1 from "src/assets/images/avatars/1.jpg";
-import avatar2 from "src/assets/images/avatars/2.jpg";
-import avatar3 from "src/assets/images/avatars/3.jpg";
-import avatar4 from "src/assets/images/avatars/4.jpg";
-import avatar5 from "src/assets/images/avatars/5.jpg";
-import avatar6 from "src/assets/images/avatars/6.jpg";
+const Charts = () => {
+  const [incomeData, setIncomeData] = useState({ labels: [], datasets: [] });
+  const [expenseData, setExpenseData] = useState({ labels: [], datasets: [] });
+  const [totalIncome, setTotalIncome] = useState(null);
+  const [totalExpenses, setTotalExpenses] = useState(null);
+  const [profitOrLoss, setProfitOrLoss] = useState(null);
+  const [totalVATIncome, setTotalVATIncome] = useState(null);
+  const [totalVATExpenses, setTotalVATExpenses] = useState(null);
+  const [VATDifference, setVATDifference] = useState(null);
+  const [B2BTotal, setB2BTotal] = useState(null);
+  const [B2CTotal, setB2CTotal] = useState(null);
+  const [withheldAmountData, setWithheldAmountData] = useState({
+    labels: [],
+    datasets: [],
+  });
+  const [dateFrom, setDateFrom] = useState(null);
+  const [dateTo, setDateTo] = useState(null);
+  const [dateFromProfitLoss, setDateFromProfitLoss] = useState(null);
+  const [dateToProfitLoss, setDateToProfitLoss] = useState(null);
+  const [dateFromVAT, setDateFromVAT] = useState(null);
+  const [dateToVAT, setDateToVAT] = useState(null);
+  const [showWithheldTaxes, setShowWithheldTaxes] = useState(false);
+  const [showIncomeExpenses, setShowIncomeExpenses] = useState(false);
+  const [showProfitLoss, setShowProfitLoss] = useState(false);
+  const [showVAT, setShowVAT] = useState(false);
+  const [spinner, setSpinner] = useState(false);
+  const [spinnerIncomeExpenses, setSpinnerIncomeExpenses] = useState(false);
+  const [spinnerProfitLoss, setSpinnerProfitLoss] = useState(false);
+  const [spinnerVAT, setSpinnerVAT] = useState(false);
 
-import WidgetsBrand from "../widgets/WidgetsBrand";
-import WidgetsDropdown from "../widgets/WidgetsDropdown";
-import MainChart from "./MainChart";
+  const formatNumber = (number) => {
+    return new Intl.NumberFormat("el-GR", { minimumFractionDigits: 2 }).format(
+      number
+    );
+  };
 
-const Dashboard = () => {
-  const progressExample = [
-    { title: "Visits", value: "29.703 Users", percent: 40, color: "success" },
-    { title: "Unique", value: "24.093 Users", percent: 20, color: "info" },
-    {
-      title: "Pageviews",
-      value: "78.706 Views",
-      percent: 60,
-      color: "warning",
-    },
-    { title: "New Users", value: "22.123 Users", percent: 80, color: "danger" },
-    {
-      title: "Bounce Rate",
-      value: "Average Rate",
-      percent: 40.15,
-      color: "primary",
-    },
-  ];
+  const formatDate = (date) => {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
 
-  const progressGroupExample1 = [
-    { title: "Monday", value1: 34, value2: 78 },
-    { title: "Tuesday", value1: 56, value2: 94 },
-    { title: "Wednesday", value1: 12, value2: 67 },
-    { title: "Thursday", value1: 43, value2: 91 },
-    { title: "Friday", value1: 22, value2: 73 },
-    { title: "Saturday", value1: 53, value2: 82 },
-    { title: "Sunday", value1: 9, value2: 69 },
-  ];
+  const processData = (data, currentYear) => {
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
 
-  const progressGroupExample2 = [
-    { title: "Male", icon: cilUser, value: 53 },
-    { title: "Female", icon: cilUserFemale, value: 43 },
-  ];
+    const aggregatedData = {};
+    let totalVAT = 0;
+    let B2B = 0;
+    let B2C = 0;
+    for (let month = 0; month < 12; month++) {
+      const currentYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear()}`;
+      const lastYearLabel = `${String(month + 1).padStart(2, "0")}/${currentYear.getFullYear() - 1}`;
+      aggregatedData[currentYearLabel] = { currentYear: 0, lastYear: 0 };
+      aggregatedData[lastYearLabel] = { currentYear: 0, lastYear: 0 };
+    }
 
-  const progressGroupExample3 = [
-    { title: "Organic Search", icon: cibGoogle, percent: 56, value: "191,235" },
-    { title: "Facebook", icon: cibFacebook, percent: 15, value: "51,223" },
-    { title: "Twitter", icon: cibTwitter, percent: 11, value: "37,564" },
-    { title: "LinkedIn", icon: cibLinkedin, percent: 8, value: "27,319" },
-  ];
+    let total = 0;
 
-  const tableExample = [
-    {
-      avatar: { src: avatar1, status: "success" },
-      user: {
-        name: "Yiorgos Avraamu",
-        new: true,
-        registered: "Jan 1, 2023",
-      },
-      country: { name: "USA", flag: cifUs },
-      usage: {
-        value: 50,
-        period: "Jun 11, 2023 - Jul 10, 2023",
-        color: "success",
-      },
-      payment: { name: "Mastercard", icon: cibCcMastercard },
-      activity: "10 sec ago",
-    },
-    {
-      avatar: { src: avatar2, status: "danger" },
-      user: {
-        name: "Avram Tarasios",
-        new: false,
-        registered: "Jan 1, 2023",
-      },
-      country: { name: "Brazil", flag: cifBr },
-      usage: {
-        value: 22,
-        period: "Jun 11, 2023 - Jul 10, 2023",
-        color: "info",
-      },
-      payment: { name: "Visa", icon: cibCcVisa },
-      activity: "5 minutes ago",
-    },
-    {
-      avatar: { src: avatar3, status: "warning" },
-      user: { name: "Quintin Ed", new: true, registered: "Jan 1, 2023" },
-      country: { name: "India", flag: cifIn },
-      usage: {
-        value: 74,
-        period: "Jun 11, 2023 - Jul 10, 2023",
-        color: "warning",
-      },
-      payment: { name: "Stripe", icon: cibCcStripe },
-      activity: "1 hour ago",
-    },
-    {
-      avatar: { src: avatar4, status: "secondary" },
-      user: { name: "Enéas Kwadwo", new: true, registered: "Jan 1, 2023" },
-      country: { name: "France", flag: cifFr },
-      usage: {
-        value: 98,
-        period: "Jun 11, 2023 - Jul 10, 2023",
-        color: "danger",
-      },
-      payment: { name: "PayPal", icon: cibCcPaypal },
-      activity: "Last month",
-    },
-    {
-      avatar: { src: avatar5, status: "success" },
-      user: {
-        name: "Agapetus Tadeáš",
-        new: true,
-        registered: "Jan 1, 2023",
-      },
-      country: { name: "Spain", flag: cifEs },
-      usage: {
-        value: 22,
-        period: "Jun 11, 2023 - Jul 10, 2023",
-        color: "primary",
-      },
-      payment: { name: "Google Wallet", icon: cibCcApplePay },
-      activity: "Last week",
-    },
-    {
-      avatar: { src: avatar6, status: "danger" },
-      user: {
-        name: "Friderik Dávid",
-        new: true,
-        registered: "Jan 1, 2023",
-      },
-      country: { name: "Poland", flag: cifPl },
-      usage: {
-        value: 43,
-        period: "Jun 11, 2023 - Jul 10, 2023",
-        color: "success",
-      },
-      payment: { name: "Amex", icon: cibCcAmex },
-      activity: "Last week",
-    },
-  ];
+    data.forEach((item) => {
+      const date = new Date(item.issueDate);
+      const month = date.getMonth();
+      const year = date.getFullYear();
+
+      if (
+        year === currentYear.getFullYear() ||
+        year === currentYear.getFullYear() - 1
+      ) {
+        const label = `${String(month + 1).padStart(2, "0")}/${year}`;
+        total += parseFloat(item.grossValue);
+        totalVAT += parseFloat(item.vatAmount);
+
+        if (year === currentYear.getFullYear()) {
+          aggregatedData[label].currentYear += parseFloat(item.grossValue);
+        } else if (year === currentYear.getFullYear() - 1) {
+          aggregatedData[label].lastYear += parseFloat(item.grossValue);
+        }
+
+        // Calculate B2B and B2C totals
+        if (!["11.1", "11.2", "11.3", "11.4", "11.5"].includes(item.invType)) {
+          B2B += parseFloat(item.grossValue);
+        } else {
+          B2C += parseFloat(item.grossValue);
+        }
+      }
+    });
+
+    const labels = Object.keys(aggregatedData).sort((a, b) => {
+      const [monthA, yearA] = a.split("/").map(Number);
+      const [monthB, yearB] = b.split("/").map(Number);
+      return new Date(yearA, monthA - 1) - new Date(yearB, monthB - 1);
+    });
+    const currentYearData = labels
+      .filter((label) => label.endsWith(currentYear.getFullYear().toString()))
+      .map((label) => aggregatedData[label].currentYear);
+    const lastYearData = labels
+      .filter((label) =>
+        label.endsWith((currentYear.getFullYear() - 1).toString())
+      )
+      .map((label) => aggregatedData[label].lastYear);
+
+    return {
+      labels: labels.filter((label) =>
+        label.endsWith(currentYear.getFullYear().toString())
+      ),
+      datasets: [
+        { label: "Τρέχον έτος", data: currentYearData },
+        { label: "Προηγούμενο έτος", data: lastYearData },
+      ],
+      total,
+      totalVAT,
+      B2B,
+      B2C,
+    };
+  };
+
+  const processWithheldAmountData = (data, from, to) => {
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
+
+    const aggregatedData = {};
+    const labels = [];
+    const startDate = new Date(from);
+    const endDate = new Date(to);
+    const currentYear = startDate.getFullYear();
+
+    while (startDate <= endDate) {
+      const label = `${String(startDate.getMonth() + 1).padStart(2, "0")}/${startDate.getFullYear()}`;
+      aggregatedData[label] = 0;
+      labels.push(label);
+      startDate.setMonth(startDate.getMonth() + 1);
+    }
+
+    data.forEach((item) => {
+      const date = new Date(item.issueDate);
+      const label = `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+
+      if (aggregatedData[label] !== undefined) {
+        aggregatedData[label] += parseFloat(item.withheldAmount);
+      }
+    });
+
+    const withheldData = labels.map((label) => aggregatedData[label]);
+
+    return {
+      labels,
+      datasets: [{ label: "Παρακρατούμενοι φόροι", data: withheldData }],
+    };
+  };
+
+  const fetchIncome = async () => {
+    try {
+      setSpinnerIncomeExpenses(true);
+      const id = localStorage.getItem("id");
+      const response = await UserService.requestIncome(id);
+      if (response.status === 200) {
+        const currentYear = new Date();
+        const processedData = processData(response.data.data, currentYear);
+        setIncomeData(processedData);
+        setTotalIncome(processedData.total);
+        setTotalVATIncome(processedData.totalVAT);
+        setB2BTotal(processedData.B2B);
+        setB2CTotal(processedData.B2C);
+        setShowIncomeExpenses(true);
+      }
+      setSpinnerIncomeExpenses(false);
+    } catch (error) {
+      console.log(error);
+      setSpinnerIncomeExpenses(false);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      setSpinnerIncomeExpenses(true);
+      const id = localStorage.getItem("id");
+      const response = await UserService.requestExpenses(id);
+      if (response.status === 200) {
+        const currentYear = new Date();
+        const processedData = processData(response.data.data, currentYear);
+        setExpenseData(processedData);
+        setTotalExpenses(processedData.total);
+        setTotalVATExpenses(processedData.totalVAT);
+        setShowIncomeExpenses(true);
+      }
+      setSpinnerIncomeExpenses(false);
+    } catch (error) {
+      console.log(error);
+      setSpinnerIncomeExpenses(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIncome();
+    fetchExpenses();
+  }, []);
+
+  const fetchWithheldAmounts = async (from, to) => {
+    try {
+      setSpinner(true);
+      setShowWithheldTaxes(false);
+      const id = localStorage.getItem("id");
+      const response = await UserService.requestExpensesWithDates(
+        id,
+        formatDate(from),
+        formatDate(to)
+      );
+      if (response.status === 200) {
+        const processedData = processWithheldAmountData(
+          response.data.data,
+          from,
+          to
+        );
+        setSpinner(false);
+        setWithheldAmountData(processedData);
+        setShowWithheldTaxes(true);
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const fetchProfitLossWithDates = async (from, to) => {
+    try {
+      setSpinnerProfitLoss(true);
+      setShowProfitLoss(false);
+      const id = localStorage.getItem("id");
+      const incomeResponse = await UserService.requestIncomeWithDates(
+        id,
+        formatDate(from),
+        formatDate(to)
+      );
+      const expenseResponse = await UserService.requestExpensesWithDates(
+        id,
+        formatDate(from),
+        formatDate(to)
+      );
+
+      if (incomeResponse.status === 200 && expenseResponse.status === 200) {
+        const processedIncomeData = processData(
+          incomeResponse.data.data,
+          new Date(from)
+        );
+        const processedExpenseData = processData(
+          expenseResponse.data.data,
+          new Date(from)
+        );
+
+        setTotalIncome(processedIncomeData.total);
+        setB2BTotal(processedIncomeData.B2B);
+        setB2CTotal(processedIncomeData.B2C);
+        setTotalExpenses(processedExpenseData.total);
+
+        const profitOrLossValue =
+          processedIncomeData.total - processedExpenseData.total;
+        setProfitOrLoss(profitOrLossValue);
+        setShowProfitLoss(true);
+      }
+      setSpinnerProfitLoss(false);
+    } catch (error) {
+      console.log(error);
+      setSpinnerProfitLoss(false);
+    }
+  };
+
+  const fetchVATWithDates = async (from, to) => {
+    try {
+      setSpinnerVAT(true);
+      setShowVAT(false);
+      const id = localStorage.getItem("id");
+      const incomeResponse = await UserService.requestIncomeWithDates(
+        id,
+        formatDate(from),
+        formatDate(to)
+      );
+      const expenseResponse = await UserService.requestExpensesWithDates(
+        id,
+        formatDate(from),
+        formatDate(to)
+      );
+
+      if (incomeResponse.status === 200 && expenseResponse.status === 200) {
+        const processedIncomeData = processData(
+          incomeResponse.data.data,
+          new Date(from)
+        );
+        const processedExpenseData = processData(
+          expenseResponse.data.data,
+          new Date(from)
+        );
+
+        setTotalVATIncome(processedIncomeData.totalVAT);
+        setTotalVATExpenses(processedExpenseData.totalVAT);
+
+        const VATDifferenceValue =
+          processedIncomeData.totalVAT - processedExpenseData.totalVAT;
+        setVATDifference(VATDifferenceValue);
+        setShowVAT(true);
+      }
+      setSpinnerVAT(false);
+    } catch (error) {
+      console.log(error);
+      setSpinnerVAT(false);
+    }
+  };
+
+  const handleSearchWithheldTaxes = () => {
+    if (dateFrom && dateTo) {
+      fetchWithheldAmounts(dateFrom, dateTo);
+    }
+  };
+
+  const handleSearchProfitLoss = () => {
+    if (dateFromProfitLoss && dateToProfitLoss) {
+      fetchProfitLossWithDates(dateFromProfitLoss, dateToProfitLoss);
+    }
+  };
+
+  const handleSearchVAT = () => {
+    if (dateFromVAT && dateToVAT) {
+      fetchVATWithDates(dateFromVAT, dateToVAT);
+    }
+  };
+
+  useEffect(() => {
+    // Calculate the last three months' date range
+    const currentDate = new Date();
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(currentDate.getMonth() - 3);
+
+    // Set default date ranges for Profit/Loss and VAT
+    setDateFromProfitLoss(threeMonthsAgo);
+    setDateToProfitLoss(currentDate);
+    setDateFromVAT(threeMonthsAgo);
+    setDateToVAT(currentDate);
+
+    // Fetch data for the last three months
+    fetchWithheldAmounts(threeMonthsAgo, currentDate);
+    fetchProfitLossWithDates(threeMonthsAgo, currentDate);
+    fetchVATWithDates(threeMonthsAgo, currentDate);
+  }, []);
 
   return (
-    <>
-      <WidgetsDropdown className="mb-4" />
-      <CCard className="mb-4">
-        <CCardBody>
-          <CRow>
-            <CCol sm={5}>
-              <h4 id="traffic" className="card-title mb-0">
-                Traffic
-              </h4>
-              <div className="small text-body-secondary">
-                January - July 2023
+    <CRow>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Έσοδα</CCardHeader>
+          <CCardBody>
+            {spinnerIncomeExpenses ? (
+              <div className="text-center">
+                <CSpinner />
               </div>
-            </CCol>
-            <CCol sm={7} className="d-none d-md-block">
-              <CButton color="primary" className="float-end">
-                <CIcon icon={cilCloudDownload} />
-              </CButton>
-              <CButtonGroup className="float-end me-3">
-                {["Day", "Month", "Year"].map((value) => (
-                  <CButton
-                    color="outline-secondary"
-                    key={value}
-                    className="mx-0"
-                    active={value === "Month"}
-                  >
-                    {value}
-                  </CButton>
-                ))}
-              </CButtonGroup>
-            </CCol>
-          </CRow>
-          <MainChart />
-        </CCardBody>
-        <CCardFooter>
-          <CRow
-            xs={{ cols: 1, gutter: 4 }}
-            sm={{ cols: 2 }}
-            lg={{ cols: 4 }}
-            xl={{ cols: 5 }}
-            className="mb-2 text-center"
-          >
-            {progressExample.map((item, index, items) => (
-              <CCol
-                className={classNames({
-                  "d-none d-xl-block": index + 1 === items.length,
-                })}
-                key={index}
-              >
-                <div className="text-body-secondary">{item.title}</div>
-                <div className="fw-semibold text-truncate">
-                  {item.value} ({item.percent}%)
+            ) : (
+              showIncomeExpenses && (
+                <div style={{ overflowX: "auto" }}>
+                  <CChartBar
+                    data={{
+                      labels: incomeData.labels,
+                      datasets: incomeData.datasets.map((dataset, index) => ({
+                        ...dataset,
+                        backgroundColor: index === 0 ? "#f87979" : "#36A2EB",
+                      })),
+                    }}
+                    labels="dates"
+                    options={{
+                      tooltips: {
+                        callbacks: {
+                          label: function (tooltipItem, data) {
+                            const datasetLabel =
+                              data.datasets[tooltipItem.datasetIndex].label ||
+                              "";
+                            return `${datasetLabel}: ${formatNumber(
+                              tooltipItem.yLabel
+                            )}`;
+                          },
+                        },
+                      },
+                    }}
+                  />
                 </div>
-                <CProgress
-                  thin
-                  className="mt-2"
-                  color={item.color}
-                  value={item.percent}
+              )
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Έξοδα</CCardHeader>
+          <CCardBody>
+            {spinnerIncomeExpenses ? (
+              <div className="text-center">
+                <CSpinner />
+              </div>
+            ) : (
+              showIncomeExpenses && (
+                <div style={{ overflowX: "auto" }}>
+                  <CChartBar
+                    data={{
+                      labels: expenseData.labels,
+                      datasets: expenseData.datasets.map((dataset, index) => ({
+                        ...dataset,
+                        backgroundColor: index === 0 ? "#f87979" : "#36A2EB",
+                      })),
+                    }}
+                    labels="dates"
+                    options={{
+                      tooltips: {
+                        callbacks: {
+                          label: function (tooltipItem, data) {
+                            const datasetLabel =
+                              data.datasets[tooltipItem.datasetIndex].label ||
+                              "";
+                            return `${datasetLabel}: ${formatNumber(
+                              tooltipItem.yLabel
+                            )}`;
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              )
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Παρακρατούμενοι φόροι</CCardHeader>
+          <CCardBody>
+            <div style={{ paddingBottom: "3rem" }} className="row">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-4 col-lg-4 mb-3 mb-sm-0"
+              >
+                <label>
+                  <b>Από:</b>
+                </label>
+                <DatePicker
+                  oneTap
+                  selected={dateFrom}
+                  onChange={(date) => setDateFrom(date)}
+                  disabledDate={(date) => date > new Date()}
                 />
-              </CCol>
-            ))}
-          </CRow>
-        </CCardFooter>
-      </CCard>
-      <WidgetsBrand className="mb-4" withCharts />
-      <CRow>
-        <CCol xs>
-          <CCard className="mb-4">
-            <CCardHeader>Traffic {" & "} Sales</CCardHeader>
-            <CCardBody>
-              <CRow>
-                <CCol xs={12} md={6} xl={6}>
-                  <CRow>
-                    <CCol xs={6}>
-                      <div className="border-start border-start-4 border-start-info py-1 px-3">
-                        <div className="text-body-secondary text-truncate small">
-                          New Clients
-                        </div>
-                        <div className="fs-5 fw-semibold">9,123</div>
-                      </div>
-                    </CCol>
-                    <CCol xs={6}>
-                      <div className="border-start border-start-4 border-start-danger py-1 px-3 mb-3">
-                        <div className="text-body-secondary text-truncate small">
-                          Recurring Clients
-                        </div>
-                        <div className="fs-5 fw-semibold">22,643</div>
-                      </div>
-                    </CCol>
-                  </CRow>
-                  <hr className="mt-0" />
-                  {progressGroupExample1.map((item, index) => (
-                    <div className="progress-group mb-4" key={index}>
-                      <div className="progress-group-prepend">
-                        <span className="text-body-secondary small">
-                          {item.title}
-                        </span>
-                      </div>
-                      <div className="progress-group-bars">
-                        <CProgress thin color="info" value={item.value1} />
-                        <CProgress thin color="danger" value={item.value2} />
-                      </div>
-                    </div>
-                  ))}
-                </CCol>
-                <CCol xs={12} md={6} xl={6}>
-                  <CRow>
-                    <CCol xs={6}>
-                      <div className="border-start border-start-4 border-start-warning py-1 px-3 mb-3">
-                        <div className="text-body-secondary text-truncate small">
-                          Pageviews
-                        </div>
-                        <div className="fs-5 fw-semibold">78,623</div>
-                      </div>
-                    </CCol>
-                    <CCol xs={6}>
-                      <div className="border-start border-start-4 border-start-success py-1 px-3 mb-3">
-                        <div className="text-body-secondary text-truncate small">
-                          Organic
-                        </div>
-                        <div className="fs-5 fw-semibold">49,123</div>
-                      </div>
-                    </CCol>
-                  </CRow>
-
-                  <hr className="mt-0" />
-
-                  {progressGroupExample2.map((item, index) => (
-                    <div className="progress-group mb-4" key={index}>
-                      <div className="progress-group-header">
-                        <CIcon className="me-2" icon={item.icon} size="lg" />
-                        <span>{item.title}</span>
-                        <span className="ms-auto fw-semibold">
-                          {item.value}%
-                        </span>
-                      </div>
-                      <div className="progress-group-bars">
-                        <CProgress thin color="warning" value={item.value} />
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className="mb-5"></div>
-
-                  {progressGroupExample3.map((item, index) => (
-                    <div className="progress-group" key={index}>
-                      <div className="progress-group-header">
-                        <CIcon className="me-2" icon={item.icon} size="lg" />
-                        <span>{item.title}</span>
-                        <span className="ms-auto fw-semibold">
-                          {item.value}{" "}
-                          <span className="text-body-secondary small">
-                            ({item.percent}%)
-                          </span>
-                        </span>
-                      </div>
-                      <div className="progress-group-bars">
-                        <CProgress thin color="success" value={item.percent} />
-                      </div>
-                    </div>
-                  ))}
-                </CCol>
-              </CRow>
-
-              <br />
-
-              <CTable align="middle" className="mb-0 border" hover responsive>
-                <CTableHead className="text-nowrap">
-                  <CTableRow>
-                    <CTableHeaderCell className="bg-body-tertiary text-center">
-                      <CIcon icon={cilPeople} />
-                    </CTableHeaderCell>
-                    <CTableHeaderCell className="bg-body-tertiary">
-                      User
-                    </CTableHeaderCell>
-                    <CTableHeaderCell className="bg-body-tertiary text-center">
-                      Country
-                    </CTableHeaderCell>
-                    <CTableHeaderCell className="bg-body-tertiary">
-                      Usage
-                    </CTableHeaderCell>
-                    <CTableHeaderCell className="bg-body-tertiary text-center">
-                      Payment Method
-                    </CTableHeaderCell>
-                    <CTableHeaderCell className="bg-body-tertiary">
-                      Activity
-                    </CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {tableExample.map((item, index) => (
-                    <CTableRow v-for="item in tableItems" key={index}>
-                      <CTableDataCell className="text-center">
-                        <CAvatar
-                          size="md"
-                          src={item.avatar.src}
-                          status={item.avatar.status}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <div>{item.user.name}</div>
-                        <div className="small text-body-secondary text-nowrap">
-                          <span>{item.user.new ? "New" : "Recurring"}</span> |
-                          Registered: {item.user.registered}
-                        </div>
-                      </CTableDataCell>
-                      <CTableDataCell className="text-center">
-                        <CIcon
-                          size="xl"
-                          icon={item.country.flag}
-                          title={item.country.name}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <div className="d-flex justify-content-between text-nowrap">
-                          <div className="fw-semibold">{item.usage.value}%</div>
-                          <div className="ms-3">
-                            <small className="text-body-secondary">
-                              {item.usage.period}
-                            </small>
-                          </div>
-                        </div>
-                        <CProgress
-                          thin
-                          color={item.usage.color}
-                          value={item.usage.value}
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell className="text-center">
-                        <CIcon size="xl" icon={item.payment.icon} />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <div className="small text-body-secondary text-nowrap">
-                          Last login
-                        </div>
-                        <div className="fw-semibold text-nowrap">
-                          {item.activity}
-                        </div>
-                      </CTableDataCell>
-                    </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-    </>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-3 col-lg-3"
+              >
+                <label>
+                  <b>Εώς:</b>
+                </label>
+                <DatePicker
+                  oneTap
+                  selected={dateTo}
+                  onChange={(date) => setDateTo(date)}
+                  shouldDisableDate={(date) => date > new Date()}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-3 col-lg-3"
+              >
+                <CButton
+                  color="primary"
+                  className="px-4 search_btn"
+                  onClick={handleSearchWithheldTaxes}
+                >
+                  <FaSearch />
+                  Αναζήτηση
+                </CButton>
+              </div>
+            </div>
+            {spinner && (
+              <div className="text-center">
+                <CSpinner />
+              </div>
+            )}
+            {showWithheldTaxes && (
+              <div style={{ overflowX: "auto" }}>
+                <CChartBar
+                  data={{
+                    labels: withheldAmountData.labels,
+                    datasets: withheldAmountData.datasets.map(
+                      (dataset, index) => ({
+                        ...dataset,
+                        backgroundColor: "#FFCE56",
+                      })
+                    ),
+                  }}
+                  labels="dates"
+                  options={{
+                    tooltips: {
+                      callbacks: {
+                        label: function (tooltipItem, data) {
+                          const datasetLabel =
+                            data.datasets[tooltipItem.datasetIndex].label || "";
+                          return `${datasetLabel}: ${formatNumber(
+                            tooltipItem.yLabel
+                          )}`;
+                        },
+                      },
+                    },
+                  }}
+                />
+              </div>
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Σύνολο Έσοδα vs Έξοδα</CCardHeader>
+          <CCardBody>
+            <div style={{ paddingBottom: "3rem" }} className="row">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-4 col-lg-4 mb-3 mb-sm-0"
+              >
+                <label>
+                  <b>Από:</b>
+                </label>
+                <DatePicker
+                  oneTap
+                  selected={dateFromProfitLoss}
+                  onChange={(date) => setDateFromProfitLoss(date)}
+                  disabledDate={(date) => date > new Date()}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-3 col-lg-3"
+              >
+                <label>
+                  <b>Εώς:</b>
+                </label>
+                <DatePicker
+                  oneTap
+                  selected={dateToProfitLoss}
+                  onChange={(date) => setDateToProfitLoss(date)}
+                  shouldDisableDate={(date) => date > new Date()}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-3 col-lg-3 mobile-search"
+              >
+                <CButton
+                  color="primary"
+                  className="px-4 search_btn"
+                  onClick={handleSearchProfitLoss}
+                >
+                  <FaSearch />
+                  Αναζήτηση
+                </CButton>
+              </div>
+            </div>
+            {spinnerProfitLoss && (
+              <div className="text-center">
+                <CSpinner />
+              </div>
+            )}
+            {showProfitLoss && (
+              <div style={{ overflowX: "auto" }}>
+                <CChartDoughnut
+                  data={{
+                    labels: ["B2B Έσοδα", "B2C Έσοδα", "Σύνολο Έξοδα"],
+                    datasets: [
+                      {
+                        data: [B2BTotal, B2CTotal, totalExpenses],
+                        backgroundColor: ["#FFCE56", "#36A2EB", "#E46651"],
+                      },
+                    ],
+                  }}
+                  options={{
+                    tooltips: {
+                      callbacks: {
+                        label: function (tooltipItem, data) {
+                          return formatNumber(
+                            data.datasets[0].data[tooltipItem.index]
+                          );
+                        },
+                      },
+                    },
+                    plugins: {
+                      datalabels: {
+                        display: true,
+                        formatter: () => "",
+                      },
+                      tooltip: {
+                        enabled: true,
+                      },
+                    },
+                  }}
+                  plugins={[
+                    {
+                      beforeDraw: function (chart) {
+                        const ctx = chart.ctx;
+                        ctx.restore();
+                        const mobile =
+                          window.matchMedia("(max-width: 768px)").matches;
+                        const fontSize = (
+                          chart.height / (mobile ? 660 : 460)
+                        ).toFixed(2);
+                        ctx.font = `${fontSize}em sans-serif`;
+                        ctx.textBaseline = "middle";
+                        const text =
+                          profitOrLoss >= 0
+                            ? `Κέρδος: €${formatNumber(profitOrLoss)}`
+                            : `Ζημία: €${formatNumber(Math.abs(profitOrLoss))}`;
+                        const textX = Math.round(
+                          (chart.width - ctx.measureText(text).width) / 2
+                        );
+                        const textY = chart.height / 2;
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                      },
+                    },
+                  ]}
+                />
+              </div>
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Σύνολο ΦΠΑ Έσοδα vs Έξοδα</CCardHeader>
+          <CCardBody>
+            <div style={{ paddingBottom: "3rem" }} className="row">
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-4 col-lg-4 mb-3 mb-sm-0"
+              >
+                <label>
+                  <b>Από:</b>
+                </label>
+                <DatePicker
+                  oneTap
+                  selected={dateFromVAT}
+                  onChange={(date) => setDateFromVAT(date)}
+                  disabledDate={(date) => date > new Date()}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-3 col-lg-3"
+              >
+                <label>
+                  <b>Εώς:</b>
+                </label>
+                <DatePicker
+                  oneTap
+                  selected={dateToVAT}
+                  onChange={(date) => setDateToVAT(date)}
+                  shouldDisableDate={(date) => date > new Date()}
+                />
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "1rem",
+                }}
+                className="col-sm-3 col-lg-3 mobile-search"
+              >
+                <CButton
+                  color="primary"
+                  className="px-4 search_btn"
+                  onClick={handleSearchVAT}
+                >
+                  <FaSearch />
+                  Αναζήτηση
+                </CButton>
+              </div>
+            </div>
+            {spinnerVAT && (
+              <div className="text-center">
+                <CSpinner />
+              </div>
+            )}
+            {showVAT && (
+              <div style={{ overflowX: "auto" }}>
+                <CChartDoughnut
+                  data={{
+                    labels: ["Σύνολο ΦΠΑ Έσοδα", "Σύνολο ΦΠΑ Έξοδα"],
+                    datasets: [
+                      {
+                        data: [totalVATIncome, totalVATExpenses],
+                        backgroundColor: ["#41B883", "#E46651"],
+                      },
+                    ],
+                  }}
+                  options={{
+                    tooltips: {
+                      callbacks: {
+                        label: function (tooltipItem, data) {
+                          return formatNumber(
+                            data.datasets[0].data[tooltipItem.index]
+                          );
+                        },
+                      },
+                    },
+                    plugins: {
+                      datalabels: {
+                        display: true,
+                        formatter: () => "",
+                      },
+                      tooltip: {
+                        enabled: true,
+                      },
+                    },
+                  }}
+                  plugins={[
+                    {
+                      beforeDraw: function (chart) {
+                        const ctx = chart.ctx;
+                        ctx.restore();
+                        const mobile =
+                          window.matchMedia("(max-width: 768px)").matches;
+                        const fontSize = (
+                          chart.height / (mobile ? 660 : 560)
+                        ).toFixed(2);
+                        ctx.font = `${fontSize}em sans-serif`;
+                        ctx.textBaseline = "middle";
+                        const text =
+                          VATDifference >= 0
+                            ? `ΦΠΑ προς απόδοση: €${formatNumber(VATDifference)}`
+                            : `ΦΠΑ προς επιστροφή: €${formatNumber(
+                                Math.abs(VATDifference)
+                              )}`;
+                        const textX = Math.round(
+                          (chart.width - ctx.measureText(text).width) / 2
+                        );
+                        const textY = chart.height / 2;
+                        ctx.fillText(text, textX, textY);
+                        ctx.save();
+                      },
+                    },
+                  ]}
+                />
+              </div>
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader>Σύνολο Τζίρος vs Έξοδα</CCardHeader>
+          <CCardBody>
+            <div
+              style={{
+                overflowX: "auto",
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "flex-start",
+                flexDirection: "column",
+              }}
+            >
+              <span style={{ fontSize: "1.5rem" }}>
+                Συνολικός Τζίρος: <b>{formatNumber(B2BTotal + B2CTotal)}</b>
+              </span>
+              <span style={{ fontSize: "1.5rem" }}>
+                Συνολικά Έξοδα: <b>{formatNumber(totalExpenses)}</b>
+              </span>
+            </div>
+          </CCardBody>
+        </CCard>
+      </CCol>
+    </CRow>
   );
 };
 
-export default Dashboard;
+export default Charts;
