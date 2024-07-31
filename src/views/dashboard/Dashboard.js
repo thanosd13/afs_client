@@ -14,7 +14,7 @@ import "./Charts.css";
 import { DatePicker } from "rsuite";
 import UserService from "../../services/UserService";
 
-const Charts = () => {
+const Dashboard = () => {
   const [incomeData, setIncomeData] = useState({ labels: [], datasets: [] });
   const [expenseData, setExpenseData] = useState({ labels: [], datasets: [] });
   const [totalIncome, setTotalIncome] = useState(null);
@@ -832,4 +832,4 @@ const Charts = () => {
   );
 };
 
-export default Charts;
+export default Dashboard;
