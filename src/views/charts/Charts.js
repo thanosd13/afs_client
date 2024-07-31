@@ -693,7 +693,7 @@ const Charts = () => {
                   oneTap
                   selected={dateFrom}
                   onChange={(date) => setDateFrom(date)}
-                  disabledDate={(date) => date > new Date()}
+                  shouldDisableDateW={(date) => date > new Date()}
                 />
               </div>
               <div
@@ -722,7 +722,7 @@ const Charts = () => {
                   justifyContent: "center",
                   gap: "1rem",
                 }}
-                className="col-sm-3 col-lg-3"
+                className="col-sm-3 col-lg-3 mobile-search"
               >
                 <CButton
                   color="primary"
