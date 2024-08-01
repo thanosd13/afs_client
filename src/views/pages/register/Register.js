@@ -4,7 +4,9 @@ import { IoKeyOutline } from "react-icons/io5";
 import { FaRegUser } from "react-icons/fa";
 import { MdAlternateEmail } from "react-icons/md";
 import { RiLockPasswordLine } from "react-icons/ri";
+import { RiChatPrivateLine } from "react-icons/ri";
 import { CgDanger } from "react-icons/cg";
+import { FaRegCheckCircle } from "react-icons/fa";
 import {
   CAlert,
   CButton,
@@ -26,10 +28,12 @@ import UserService from "../../../services/UserService";
 const Register = () => {
   const navigate = useNavigate();
   const [alertMessage, setAlertMessage] = useState("");
+  const [alertMessageSuccess, setAlertMessageSuccess] = useState("");
   const [formData, setFormData] = useState({
     username: "",
     password: "",
     email: "",
+    afm: "",
     usernameAade: "",
     subscriptionKey: "",
     repeatPassword: "",
@@ -46,6 +50,7 @@ const Register = () => {
     if (
       !formData.username ||
       !formData.email ||
+      !formData.afm ||
       !formData.usernameAade ||
       !formData.subscriptionKey ||
       !formData.password ||
@@ -61,10 +66,9 @@ const Register = () => {
     UserService.register(formData)
       .then((response) => {
         if (response.status === 201) {
-          console.log(response);
-          localStorage.setItem("token", response.data.data.token);
-          localStorage.setItem("id", response.data.data.user.id);
-          navigate("/charts");
+          setAlertMessageSuccess(
+            "Η εγγραφή σας πραγματοποιήθηκε. Ο λογαριασμός σας βρίσκεται σε εκρεμότητα επιβεβαίωσης!"
+          );
         }
       })
       .catch((error) => {
@@ -85,8 +89,14 @@ const Register = () => {
               <CCard className="p-4">
                 <CCardBody>
                   <CForm>
+                    {alertMessageSuccess && (
+                      <CAlert className="alert" color="success">
+                        {/* <FaRegCheckCircle /> */}
+                        {alertMessageSuccess}
+                      </CAlert>
+                    )}
                     {alertMessage && (
-                      <CAlert className="alert-danger" color="danger">
+                      <CAlert className="alert" color="danger">
                         <CgDanger />
                         {alertMessage}
                       </CAlert>
@@ -116,6 +126,18 @@ const Register = () => {
                         onChange={handleChange}
                         placeholder="Email"
                         autoComplete="email"
+                      />
+                    </CInputGroup>
+                    <CInputGroup className="mb-3">
+                      <CInputGroupText>
+                        <RiChatPrivateLine />
+                      </CInputGroupText>
+                      <CFormInput
+                        name="afm"
+                        value={formData.afm}
+                        onChange={handleChange}
+                        placeholder="ΑΦΜ"
+                        autoComplete="afm"
                       />
                     </CInputGroup>
                     <CInputGroup className="mb-3">

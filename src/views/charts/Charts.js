@@ -693,7 +693,7 @@ const Charts = () => {
                   oneTap
                   selected={dateFrom}
                   onChange={(date) => setDateFrom(date)}
-                  shouldDisableDateW={(date) => date > new Date()}
+                  shouldDisableDate={(date) => date > new Date()}
                 />
               </div>
               <div

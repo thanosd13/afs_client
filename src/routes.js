@@ -6,7 +6,7 @@ const Colors = React.lazy(() => import("./views/theme/colors/Colors"));
 const Typography = React.lazy(
   () => import("./views/theme/typography/Typography")
 );
-
+const Users = React.lazy(() => import("./views/dashboard/Users"));
 // Base
 const Accordion = React.lazy(() => import("./views/base/accordion/Accordion"));
 const Breadcrumbs = React.lazy(
@@ -105,6 +105,7 @@ const routes = [
   // { path: '/buttons/dropdowns', name: 'Dropdowns', element: Dropdowns },
   // { path: '/buttons/button-groups', name: 'Button Groups', element: ButtonGroups },
   { path: "/charts", name: "Charts", element: Charts },
+  { path: "/users", name: "Users", element: Users },
   // { path: '/forms', name: 'Forms', element: FormControl, exact: true },
   { path: "/my_account", name: "My Account", element: MyAccount },
   // { path: '/forms/select', name: 'Select', element: Select },

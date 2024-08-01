@@ -17,12 +17,13 @@ import { logo } from "src/assets/brand/logo";
 import { sygnet } from "src/assets/brand/sygnet";
 
 // sidebar nav config
-import navigation from "../_nav";
+import { _nav, _navUser } from "../_nav";
 
 const AppSidebar = () => {
   const dispatch = useDispatch();
   const unfoldable = useSelector((state) => state.sidebarUnfoldable);
   const sidebarShow = useSelector((state) => state.sidebarShow);
+  const role = localStorage.getItem("role");
 
   return (
     <CSidebar
@@ -47,7 +48,11 @@ const AppSidebar = () => {
           onClick={() => dispatch({ type: "set", sidebarShow: false })}
         />
       </CSidebarHeader>
-      <AppSidebarNav items={navigation} />
+      {role === "admin" ? (
+        <AppSidebarNav items={_nav} />
+      ) : (
+        <AppSidebarNav items={_navUser} />
+      )}
       <CSidebarFooter className="border-top d-none d-lg-flex">
         <CSidebarToggler disabled />
       </CSidebarFooter>

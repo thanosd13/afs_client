@@ -48,19 +48,29 @@ const Login = () => {
         if (response.status === 200) {
           setAlertMessage("");
           navigate("/charts");
+          localStorage.setItem("role", response.data.data.user.role);
           localStorage.setItem("token", response.data.data.token);
         }
       })
       .catch((error) => {
         if (error.response.status === 401) {
-          setAlertMessage("Εισάγατε λάθος στοιχεία!");
+          setAlertMessage("Εισάγατε λάθος στοιχεία!"); // "You entered incorrect details!"
+          setFormData((prevState) => ({
+            ...prevState,
+            username: "",
+            password: "",
+          }));
+        } else if (error.response.status === 403) {
+          setAlertMessage(
+            "Ο λογαριασμός σας είναι σε εκκρεμότητα επιβεβαίωσης!"
+          ); // "Your account is pending approval!"
           setFormData((prevState) => ({
             ...prevState,
             username: "",
             password: "",
           }));
         } else {
-          setAlertMessage("Κάποιο σφάλμα προέκυψε!");
+          setAlertMessage("Κάποιο σφάλμα προέκυψε!"); // "An error occurred!"
           setFormData((prevState) => ({
             ...prevState,
             username: "",

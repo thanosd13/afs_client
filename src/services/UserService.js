@@ -49,6 +49,34 @@ class UserService {
     });
   }
 
+  approveUser(id) {
+    return axios.patch(
+      API_URL + "/user/approveUser/" + id,
+      {},
+      {
+        headers: AuthHeader(),
+      }
+    );
+  }
+
+  editUser(id, user) {
+    return axios.patch(API_URL + "/user/editUser/" + id, user, {
+      headers: AuthHeader(),
+    });
+  }
+
+  fetchUsers() {
+    return axios.get(API_URL + "/user/fetchUsers", {
+      headers: AuthHeader(),
+    });
+  }
+
+  deleteUser(id) {
+    return axios.delete(API_URL + "/user/deleteUser/" + id, {
+      headers: AuthHeader(),
+    });
+  }
+
   requestIncomeWithDates(id, dateFrom, dateTo) {
     return axios.post(
       API_URL + "/user/requestIncomeWithDates/" + id,

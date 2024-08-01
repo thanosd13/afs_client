@@ -5,15 +5,18 @@ import {
   AppFooter,
   AppHeader,
 } from "../components/index";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const DefaultLayout = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) navigate("/login");
-    if (localStorage.getItem("token")) navigate("/charts");
-  }, []);
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+    }
+  }, [navigate]);
 
   return (
     <div>
